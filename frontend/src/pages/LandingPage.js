@@ -17,6 +17,17 @@ function LandingPage() {
 
   return (
     <div className="landing-container">
+      {/* TOP NAVBAR */}
+      <nav className="navbar">
+        <div className="logo" onClick={() => navigate("/")}>
+          Fin<span>Twin</span>
+        </div>
+        <div className="nav-buttons">
+          <button className="login-link" onClick={() => navigate("/signin")}>Sign In</button>
+          <button className="signup-btn" onClick={() => navigate("/signup")}>Get Started</button>
+        </div>
+      </nav>
+
       {/* HERO SECTION */}
       <header className="hero">
         <div className="hero-content">
@@ -144,11 +155,11 @@ function LandingPage() {
       <footer className="footer">
         <div className="footer-content">
           <div className="footer-brand">
-            <div className="logo">Wealth<span>AI</span></div>
+            <div className="logo">Fin<span>Twin</span></div>
             <p>Intelligent asset optimization systems for Everyone.</p>
           </div>
           <div className="footer-rights">
-            <p>© 2026 WealthAI Inc. All rights reserved.</p>
+            <p>© 2026 FinTwin Inc. All rights reserved.</p>
           </div>
         </div>
       </footer>

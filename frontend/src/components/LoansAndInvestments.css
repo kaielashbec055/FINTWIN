@@ -12,7 +12,7 @@
 
 .loans-header {
   margin-bottom: 28px;
-  border-left: 4px solid #800020; /* IDBI Primary Deep Maroon Accent Line */
+  border-left: 4px solid #800020; /* FinTwin Primary Deep Maroon Accent Line */
   padding-left: 16px;
 }
 
@@ -20,7 +20,7 @@
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #800020; /* IDBI Maroon */
+  color: #800020; /* FinTwin Maroon */
   letter-spacing: 0.08em;
 }
 
@@ -38,7 +38,7 @@
 }
 
 /* ==========================================================================
-   2. INTERACTIVE SUB-NAVIGATION TABS (IDBI BRANDED)
+   2. INTERACTIVE SUB-NAVIGATION TABS (FINTWIN BRANDED)
    ========================================================================== */
 .tabs-container {
   display: flex;
@@ -67,7 +67,7 @@
 }
 
 .tab-btn.active {
-  color: #800020; /* IDBI Primary Corporate Accent */
+  color: #800020; /* FinTwin Primary Corporate Accent */
   font-weight: 700;
   border-bottom: 3px solid #800020;
 }
@@ -195,7 +195,7 @@
 }
 
 .custom-checkbox.checked {
-  background-color: #800020; /* IDBI Primary Corporate Accent */
+  background-color: #800020; /* FinTwin Primary Corporate Accent */
   border-color: #800020;
 }
 
@@ -224,7 +224,7 @@
 .submit-btn {
   width: 100%;
   padding: 14px;
-  background-color: #800020; /* IDBI Brand Crimson */
+  background-color: #800020; /* FinTwin Brand Crimson */
   color: #ffffff;
   font-weight: 700;
   font-size: 0.95rem;
@@ -252,7 +252,7 @@
 .profile-card {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #e2e8f0;
-  border-left: 5px solid #008080; /* IDBI Secondary Teal Green Accent */
+  border-left: 5px solid #008080; /* FinTwin Secondary Teal Green Accent */
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
@@ -306,7 +306,7 @@
 
 .best-emi-badge {
   background-color: #e6f2f2; /* Light Teal Tint */
-  color: #008080; /* IDBI Teal Green */
+  color: #008080; /* FinTwin Teal Green */
   font-size: 0.85rem;
   font-weight: 700;
   padding: 8px 16px;
@@ -368,7 +368,7 @@
   align-items: center;
   gap: 4px;
   background-color: #e6f2f2; /* Light Teal Tint */
-  color: #008080; /* IDBI Teal Green Accent */
+  color: #008080; /* FinTwin Teal Green Accent */
   font-size: 0.75rem;
   font-weight: 700;
   padding: 6px 10px;

@@ -2,16 +2,42 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; 
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { LayoutDashboard, MessageSquareCode, Landmark, Building2, Plus, Calendar, Send, Compass, ArrowUpRight, ArrowDownLeft, User, Briefcase, BriefcaseBusiness, MapPin, CalendarDays, Target, LogOut, Paperclip, ArrowUp, FileText } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  MessageSquareCode, 
+  Landmark, 
+  Building2, 
+  Plus, 
+  Calendar, 
+  Compass, 
+  User, 
+  Briefcase, 
+  BriefcaseBusiness, 
+  MapPin, 
+  CalendarDays, 
+  Target, 
+  LogOut, 
+  FileText, 
+  TrendingUp, 
+  ShieldCheck, 
+  Settings 
+} from "lucide-react";
 import "./Homepage.css";
 import axios from "axios";
 import AddTransactionModal from "./AddTransactionModal";
-import Chatbot from "./chatbot/chatbot";
 import Assets from "./assets"; 
-import LoansAndInvestments from "./LoansAndInvestments";
+import AIAdvisor from "./AIAdvisor";
+import LoansPage from "./LoansPage";
+import InvestmentsPage from "./InvestmentsPage";
+import SchemesPage from "./SchemesPage";
+import GoalsPage from "./GoalsPage";
+import DocumentsPage from "./DocumentsPage";
+import SettingsPage from "./SettingsPage";
+import { useLanguage } from "../context/LanguageContext";
 
 function Homepage() {
   const navigate = useNavigate();
+  const { t, language, setLanguage, supportedLanguages } = useLanguage();
   const [showToast, setShowToast] = useState(true);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("all");
@@ -43,12 +69,7 @@ function Homepage() {
     financialGoal: ""
   });
 
-  const [chatInput, setChatInput] = useState("");
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [isReadingFile, setIsReadingFile] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { sender: "ai", text: "Welcome to your financial intelligence nerve center. I have processed your risk parameters. What would you like to build or optimize today?" }
-  ]);
+
 
   // FIX 1: Fetch profile values directly from MongoDB via GET API
   useEffect(() => {
@@ -75,7 +96,12 @@ function Homepage() {
           }
         };
         
-        const res = await axios.get("https://wealth-ai-backend.onrender.com/api/profile", config);
+        let res;
+        try {
+          res = await axios.get("http://localhost:5000/api/profile", { ...config, timeout: 2500 });
+        } catch (localErr) {
+          res = await axios.get("https://wealth-ai-backend.onrender.com/api/profile", config);
+        }
         
         if (res.data && Object.keys(res.data).length > 0) {
           // Direct sync database fields matching your MongoDB Compass keys
@@ -209,16 +235,18 @@ function Homepage() {
         profileCompleted: true
       };
 
-      await axios.post(
-        "https://wealth-ai-backend.onrender.com/api/profile",
-        payload,
-        { 
-          headers: { 
-            "x-auth-token": token,
-            "Authorization": `Bearer ${token}`
-          } 
-        }
-      );
+      const reqConfig = { 
+        headers: { 
+          "x-auth-token": token,
+          "Authorization": `Bearer ${token}`
+        } 
+      };
+
+      try {
+        await axios.post("http://localhost:5000/api/profile", payload, { ...reqConfig, timeout: 2500 });
+      } catch (localErr) {
+        await axios.post("https://wealth-ai-backend.onrender.com/api/profile", payload, reqConfig);
+      }
 
       alert("Saved successfully!");
     } catch (error) {
@@ -230,104 +258,7 @@ function Homepage() {
     navigate("/signin", { replace: true });
   };
 
-  const formatBytes = (bytes, decimals = 2) => {
-    if (!+bytes) return "0 Bytes";
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-  };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsReadingFile(true);
-    const reader = new FileReader();
-    const isText = file.type.startsWith("text/") || 
-                   /\.(txt|csv|json|md|js|html|xml|ini|cfg)$/i.test(file.name);
-
-    reader.onload = (event) => {
-      setAttachedFile({
-        name: file.name,
-        size: formatBytes(file.size),
-        type: file.type,
-        content: isText ? event.target.result : null,
-        isText: isText
-      });
-      setIsReadingFile(false);
-    };
-
-    reader.onerror = () => {
-      alert("Error reading file");
-      setIsReadingFile(false);
-    };
-
-    if (isText) {
-      reader.readAsText(file);
-    } else {
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim() && !attachedFile) return;
-
-    const userText = chatInput;
-    const currentFile = attachedFile;
-    
-    const userMsg = { 
-      sender: "user", 
-      text: userText || `Uploaded file: ${currentFile.name}`,
-      file: currentFile ? { name: currentFile.name, size: currentFile.size } : null
-    };
-    
-    setChatMessages(prev => [...prev, userMsg]);
-    setChatInput("");
-    setAttachedFile(null);
-
-    const loadingId = Date.now();
-    setChatMessages(prev => [...prev, { sender: "ai", text: "Analyzing parameter matrix...", isLoading: true, id: loadingId }]);
-
-    try {
-      const token = localStorage.getItem("token");
-      
-      let apiMessage = userText;
-      if (currentFile) {
-        if (currentFile.isText && currentFile.content) {
-          apiMessage = `[Attached Document: ${currentFile.name}]\nContent:\n${currentFile.content}\n\nUser Query: ${userText || "Please analyze this document."}`;
-        } else {
-          apiMessage = `[Attached Document (Binary): ${currentFile.name} of size ${currentFile.size}]\n\nUser Query: ${userText || "Please analyze this file."}`;
-        }
-      }
-
-      const res = await axios.post(
-        "https://wealth-ai-backend.onrender.com/api/chat",
-        {
-          message: apiMessage,
-          userProfile: profileSnapshot 
-        },
-        {
-          headers: {
-            "x-auth-token": token,
-            "Authorization": `Bearer ${token}`
-          }
-        }
-      );
-
-      setChatMessages(prev => 
-        prev.map(msg => msg.id === loadingId ? { sender: "ai", text: res.data.reply } : msg)
-      );
-
-    } catch (error) {
-      console.error("Chat failure:", error);
-      setChatMessages(prev => 
-        prev.map(msg => msg.id === loadingId ? { sender: "ai", text: "I ran into a telemetry link error. Please check your network credentials gateway link." } : msg)
-      );
-    }
-  };
 
    const filteredTransactions = (() => {
     if (!transactions || transactions.length === 0) return [];
@@ -447,22 +378,50 @@ function Homepage() {
 
       <aside className="fixed-sidebar-container">
         <div className="sidebar-brand-area">
-          <div className="logo-main">Wealth<span>AI</span></div>
+          <div className="logo-main">Fin<span>Twin</span></div>
+          <div className="sidebar-lang-box">
+            <span style={{ fontSize: "14px" }}>🌐</span>
+            <select
+              className="sidebar-lang-select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              title="Select Regional Language"
+            >
+              {supportedLanguages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.native} ({l.name})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <nav className="sidebar-navigation-links">
           <div className={`nav-link-item ${activeSection === "dashboard" ? "active" : ""}`} onClick={() => setActiveSection("dashboard")}>
-            <LayoutDashboard size={18} /> <span>Dashboard</span>
+            <LayoutDashboard size={18} /> <span>{t('nav_dashboard', 'Dashboard')}</span>
           </div>
           <div className={`nav-link-item ${activeSection === "advisor" ? "active" : ""}`} onClick={() => setActiveSection("advisor")}>
-            <MessageSquareCode size={18} /> <span>AI advisor</span>
+            <MessageSquareCode size={18} /> <span>{t('nav_advisor', 'AI Advisor')}</span>
           </div>
           <div className={`nav-link-item ${activeSection === "loans" ? "active" : ""}`} onClick={() => setActiveSection("loans")}>
-            <Landmark size={18} /> <span>Loans&Investments</span>
+            <Landmark size={18} /> <span>{t('nav_loans', 'Loans')}</span>
           </div>
-          
-          {/* FIXED: Changed active state tracker and onClick from "properties" to "assets" to match the component triggers */}
+          <div className={`nav-link-item ${activeSection === "investments" ? "active" : ""}`} onClick={() => setActiveSection("investments")}>
+            <TrendingUp size={18} /> <span>{t('nav_investments', 'Investments')}</span>
+          </div>
+          <div className={`nav-link-item ${activeSection === "schemes" ? "active" : ""}`} onClick={() => setActiveSection("schemes")}>
+            <ShieldCheck size={18} /> <span>{t('nav_schemes', 'Schemes')}</span>
+          </div>
+          <div className={`nav-link-item ${activeSection === "goals" ? "active" : ""}`} onClick={() => setActiveSection("goals")}>
+            <Target size={18} /> <span>{t('nav_goals', 'Goals')}</span>
+          </div>
           <div className={`nav-link-item ${activeSection === "assets" ? "active" : ""}`} onClick={() => setActiveSection("assets")}>
-            <Building2 size={18} /> <span>Assets</span>
+            <Building2 size={18} /> <span>{t('nav_assets', 'Assets')}</span>
+          </div>
+          <div className={`nav-link-item ${activeSection === "documents" ? "active" : ""}`} onClick={() => setActiveSection("documents")}>
+            <FileText size={18} /> <span>{t('nav_documents', 'Documents')}</span>
+          </div>
+          <div className={`nav-link-item ${activeSection === "settings" ? "active" : ""}`} onClick={() => setActiveSection("settings")}>
+            <Settings size={18} /> <span>{t('nav_settings', 'Settings')}</span>
           </div>
         </nav>
         
@@ -487,8 +446,8 @@ function Homepage() {
           <>
             <header className="workspace-action-header">
               <div className="header-greeting-box">
-                <p>Dashboard</p>
-                <h2>Hi {userData.name || "User"}</h2>
+                <p>{t('nav_dashboard', 'Dashboard')}</p>
+                <h2>{t('dash_welcome_back', 'Welcome back')}, {userData.name || "User"}</h2>
                 <p>Your active capital parameters are loaded</p>
               </div>
 
@@ -512,26 +471,26 @@ function Homepage() {
                   onClick={() => setIsTransactionOpen(true)}
                 >
                   <Plus size={16}/>
-                  <span>Add Transaction</span>
+                  <span>{t('dash_add_transaction', 'Add Transaction')}</span>
                 </button>
               </div>
             </header>
 
             <section className="metrics-summary-grid">
               <div className="metric-card-item">
-                <span className="metric-label">AVAILABLE BALANCE</span>
+                <span className="metric-label">{t('dash_total_balance', 'AVAILABLE BALANCE')}</span>
                 <h3 className="metric-value">₹{metrics.balance.toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
-                <span className="metric-label">TOTAL INCOME</span>
+                <span className="metric-label">{t('dash_monthly_income', 'TOTAL INCOME')}</span>
                 <h3 className="metric-value success">₹{metrics.income.toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
-                <span className="metric-label">TOTAL EXPENSES</span>
+                <span className="metric-label">{t('dash_monthly_expenses', 'TOTAL EXPENSES')}</span>
                 <h3 className="metric-value danger">₹{metrics.expenses.toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
-                <span className="metric-label">SAVINGS RATE</span>
+                <span className="metric-label">{t('dash_savings_rate', 'SAVINGS RATE')}</span>
                 <h3 className="metric-value interest">{metrics.savingsRate}%</h3>
               </div>
             </section>
@@ -660,99 +619,46 @@ function Homepage() {
           </>
         )}
 
-        {/* AI ADVISOR SECTION */}
+        {/* 2. AI ADVISOR WORKSPACE (ChatGPT-Style Conversational Interface) */}
         {activeSection === "advisor" && (
-          <div className="ai-copilot-interface-wrapper">
-            <div className="copilot-header-panel">
-              <h3>AI advisor</h3>
-            </div>
-            <div className="chat-stream-viewport">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`chat-bubble-row ${msg.sender}`}>
-                  <div className="avatar-indicator">{msg.sender === "ai" ? "AI" : "UX"}</div>
-                  <div className="bubble-payload-wrapper">
-                    {msg.file && (
-                      <div className="chat-message-file-card">
-                        <FileText size={18} className="file-icon" />
-                        <div className="file-meta">
-                          <span className="file-name">{msg.file.name}</span>
-                          <span className="file-size">{msg.file.size}</span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="bubble-payload-content">{msg.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="chat-input-container-wrapper">
-              <form className="chat-input-bar-modern" onSubmit={handleSendMessage}>
-                {/* File upload — LEFT side of input bar */}
-                <input 
-                  type="file" 
-                  id="chatbot-file-upload" 
-                  style={{ display: "none" }} 
-                  onChange={handleFileChange}
-                />
-                <label htmlFor="chatbot-file-upload" className="attachment-trigger-btn" title="Upload document">
-                  <Paperclip size={18} />
-                </label>
-
-                <div className="input-text-area-wrapper">
-                  {attachedFile && (
-                    <div className="file-preview-chip">
-                      <FileText size={14} className="chip-icon" />
-                      <div className="chip-meta">
-                        <span className="chip-name">{attachedFile.name}</span>
-                        <span className="chip-size">{attachedFile.size}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        className="chip-remove-btn" 
-                        onClick={() => setAttachedFile(null)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                  
-                  <input 
-                    type="text" 
-                    placeholder={isReadingFile ? "Reading document..." : "Message WealthAI..."}
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    disabled={isReadingFile}
-                  />
-                </div>
-
-                {/* Send button — RIGHT side */}
-                <button 
-                  type="submit" 
-                  className={`chat-send-btn-circle ${(chatInput.trim() || attachedFile) ? 'active' : ''}`}
-                  disabled={!(chatInput.trim() || attachedFile) || isReadingFile}
-                >
-                  <ArrowUp size={18} />
-                </button>
-              </form>
-            </div>
-          </div>
+          <AIAdvisor profile={profileSnapshot} />
         )}
         
-        {/* ASSET YIELDS PROFILE */}
+        {/* 3. LOANS MANAGEMENT & BANK EXPLORER */}
         {activeSection === "loans" && (
+          <LoansPage profile={profileSnapshot} />
+        )}
+
+        {/* 4. INVESTMENTS PORTFOLIO */}
+        {activeSection === "investments" && (
+          <InvestmentsPage profile={profileSnapshot} />
+        )}
+
+        {/* 5. GOVERNMENT OF INDIA SCHEMES (myScheme Platform) */}
+        {activeSection === "schemes" && (
+          <SchemesPage profile={profileSnapshot} />
+        )}
+
+        {/* 6. FINANCIAL GOALS */}
+        {activeSection === "goals" && (
+          <GoalsPage profile={profileSnapshot} />
+        )}
+
+        {/* 7. ASSETS TRACKING VIEW */}
+        {activeSection === "assets" && (
           <div className="real-estate-section-wrapper" style={{ width: '100%' }}>
-            {/* Renders your complete interactive calculator dashboard directly inside this tab */}
-            <LoansAndInvestments />
+            <Assets profile={profileSnapshot} />
           </div>
         )}
 
-                {/* ASSETS TRACKING VIEW PANEL */}
-        {activeSection === "assets" && (
-          <div className="real-estate-section-wrapper" style={{ width: '100%' }}>
-            {/* FIXED: Passed the profileSnapshot state as a prop to satisfy assets.js constraints */}
-            <Assets profile={profileSnapshot} />
-          </div>
+        {/* 8. FINANCIAL DOCUMENTS VAULT */}
+        {activeSection === "documents" && (
+          <DocumentsPage />
+        )}
+
+        {/* 9. SETTINGS & PREFERENCES */}
+        {activeSection === "settings" && (
+          <SettingsPage />
         )}
 
 

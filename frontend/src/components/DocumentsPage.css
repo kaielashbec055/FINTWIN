@@ -1,0 +1,353 @@
+/* FinTwin Documents Vault Styling */
+.docs-page-container {
+  padding: 24px 32px;
+  background: #f8fafc;
+  min-height: calc(100vh - 80px);
+  color: #1e293b;
+  font-family: inherit;
+}
+
+.dark-mode .docs-page-container {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Header */
+.docs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.docs-header-titles h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #800020;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.dark-mode .docs-header-titles h1 {
+  color: #f43f5e;
+}
+
+.docs-header-titles p {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.dark-mode .docs-header-titles p {
+  color: #94a3b8;
+}
+
+/* Upload Dropzone */
+.docs-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 32px 24px;
+  text-align: center;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dark-mode .docs-dropzone {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.docs-dropzone:hover,
+.docs-dropzone.dragging {
+  border-color: #800020;
+  background: rgba(128, 0, 32, 0.02);
+}
+
+.dark-mode .docs-dropzone:hover {
+  background: rgba(244, 63, 94, 0.05);
+  border-color: #f43f5e;
+}
+
+.docs-drop-icon {
+  font-size: 36px;
+  color: #800020;
+}
+
+.dark-mode .docs-drop-icon {
+  color: #f43f5e;
+}
+
+.docs-drop-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dark-mode .docs-drop-title {
+  color: #f8fafc;
+}
+
+.docs-drop-subtitle {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dark-mode .docs-drop-subtitle {
+  color: #94a3b8;
+}
+
+/* Toolbar & Filters */
+.docs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.docs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.docs-tab-btn {
+  background: #edf2f7;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dark-mode .docs-tab-btn {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.docs-tab-btn.active {
+  background: #800020;
+  color: #ffffff;
+}
+
+.docs-search {
+  min-width: 220px;
+}
+
+.docs-search input {
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  outline: none;
+}
+
+.dark-mode .docs-search input {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+/* Documents Table / Grid */
+.docs-table-wrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.dark-mode .docs-table-wrapper {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.docs-table th {
+  background: #f8fafc;
+  padding: 14px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dark-mode .docs-table th {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+.docs-table td {
+  padding: 14px 18px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.dark-mode .docs-table td {
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.docs-table tr:hover {
+  background: #f8fafc;
+}
+
+.dark-mode .docs-table tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.docs-file-col {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.docs-file-icon {
+  font-size: 22px;
+}
+
+.docs-file-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dark-mode .docs-file-name {
+  color: #f8fafc;
+}
+
+.docs-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.docs-tag.banking { background: #dbeafe; color: #1d4ed8; }
+.docs-tag.loans { background: #fee2e2; color: #b91c1c; }
+.docs-tag.taxes { background: #dcfce7; color: #15803d; }
+.docs-tag.insurance { background: #fef3c7; color: #b45309; }
+.docs-tag.kyc { background: #f3e8ff; color: #7e22ce; }
+.docs-tag.investments { background: #ffedd5; color: #c2410c; }
+
+.docs-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.docs-btn-action {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dark-mode .docs-btn-action {
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+.docs-btn-action:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.docs-btn-action.delete:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Preview Modal */
+.docs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.docs-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .docs-modal {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.docs-modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dark-mode .docs-modal-header {
+  border-color: #334155;
+}
+
+.docs-modal-body {
+  padding: 24px;
+}
+
+.docs-preview-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 32px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.dark-mode .docs-preview-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+.docs-modal-footer {
+  padding: 16px 22px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.dark-mode .docs-modal-footer {
+  border-color: #334155;
+}

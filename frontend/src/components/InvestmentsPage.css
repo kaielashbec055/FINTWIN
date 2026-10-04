@@ -1,0 +1,650 @@
+/* FinTwin Investment Portfolio Styling */
+.inv-page-container {
+  padding: 24px 32px;
+  background: #f8fafc;
+  min-height: calc(100vh - 80px);
+  color: #1e293b;
+  font-family: inherit;
+}
+
+.dark-mode .inv-page-container {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Header */
+.inv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.inv-header-titles h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #800020;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.dark-mode .inv-header-titles h1 {
+  color: #f43f5e;
+}
+
+.inv-header-titles p {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.dark-mode .inv-header-titles p {
+  color: #94a3b8;
+}
+
+.inv-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.inv-btn-primary {
+  background: linear-gradient(135deg, #800020, #a30029);
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(128, 0, 32, 0.25);
+}
+
+.inv-btn-primary:hover {
+  background: linear-gradient(135deg, #990026, #b8002e);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(128, 0, 32, 0.35);
+}
+
+/* Portfolio Metric Cards */
+.inv-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.inv-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark-mode .inv-metric-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.inv-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+}
+
+.inv-metric-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.dark-mode .inv-metric-label {
+  color: #94a3b8;
+}
+
+.inv-metric-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.dark-mode .inv-metric-value {
+  color: #f8fafc;
+}
+
+.inv-metric-badge {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inv-metric-badge.positive {
+  color: #16a34a;
+}
+
+.inv-metric-badge.negative {
+  color: #dc2626;
+}
+
+/* Asset Allocation Bar */
+.inv-allocation-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.dark-mode .inv-allocation-box {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.inv-allocation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.inv-allocation-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.dark-mode .inv-allocation-title {
+  color: #f1f5f9;
+}
+
+.inv-bar-stacked {
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  background: #e2e8f0;
+  margin-bottom: 12px;
+}
+
+.dark-mode .inv-bar-stacked {
+  background: #334155;
+}
+
+.inv-bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.inv-legend-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.inv-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dark-mode .inv-legend-item {
+  color: #94a3b8;
+}
+
+.inv-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Filters & Search Toolbar */
+.inv-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.inv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #edf2f7;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.dark-mode .inv-tabs {
+  background: #1e293b;
+}
+
+.inv-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark-mode .inv-tab-btn {
+  color: #94a3b8;
+}
+
+.inv-tab-btn.active {
+  background: #ffffff;
+  color: #800020;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.dark-mode .inv-tab-btn.active {
+  background: #800020;
+  color: #ffffff;
+}
+
+.inv-search-box {
+  position: relative;
+  min-width: 240px;
+}
+
+.inv-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dark-mode .inv-search-input {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.inv-search-input:focus {
+  border-color: #800020;
+}
+
+.inv-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* Investment Cards Grid */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.inv-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dark-mode .inv-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.inv-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.07);
+  border-color: #cbd5e1;
+}
+
+.inv-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.inv-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+}
+
+.dark-mode .inv-card-title {
+  color: #f8fafc;
+}
+
+.inv-card-institution {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+.dark-mode .inv-card-institution {
+  color: #94a3b8;
+}
+
+.inv-tag {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.inv-tag.mutual_funds { background: #dbeafe; color: #1d4ed8; }
+.inv-tag.stocks { background: #e0e7ff; color: #4338ca; }
+.inv-tag.fixed_deposits { background: #dcfce7; color: #15803d; }
+.inv-tag.gold { background: #fef3c7; color: #b45309; }
+.inv-tag.bonds { background: #f3e8ff; color: #7e22ce; }
+.inv-tag.etfs { background: #ffedd5; color: #c2410c; }
+.inv-tag.other { background: #f1f5f9; color: #475569; }
+
+.dark-mode .inv-tag.mutual_funds { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.dark-mode .inv-tag.stocks { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+.dark-mode .inv-tag.fixed_deposits { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+.dark-mode .inv-tag.gold { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+.dark-mode .inv-tag.bonds { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
+.dark-mode .inv-tag.etfs { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
+
+.inv-financials {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+
+.dark-mode .inv-financials {
+  background: #0f172a;
+}
+
+.inv-fin-item label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.dark-mode .inv-fin-item label {
+  color: #94a3b8;
+}
+
+.inv-fin-item span {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dark-mode .inv-fin-item span {
+  color: #f1f5f9;
+}
+
+.inv-growth-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.inv-gain-val {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inv-gain-val.positive { color: #16a34a; }
+.inv-gain-val.negative { color: #dc2626; }
+
+.inv-risk-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.inv-risk-low { background: #ecfdf5; color: #047857; }
+.inv-risk-moderate { background: #fffbeb; color: #b45309; }
+.inv-risk-high { background: #fef2f2; color: #b91c1c; }
+
+.dark-mode .inv-risk-low { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.dark-mode .inv-risk-moderate { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.dark-mode .inv-risk-high { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+.inv-card-footer {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.dark-mode .inv-card-footer {
+  border-color: #334155;
+}
+
+.inv-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inv-action-btn {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.15s;
+}
+
+.dark-mode .inv-action-btn {
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+.inv-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.inv-action-btn.delete:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Empty State */
+.inv-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+}
+
+.dark-mode .inv-empty {
+  background: #1e293b;
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+/* Modal Styles */
+.inv-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.inv-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.dark-mode .inv-modal {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.inv-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dark-mode .inv-modal-header {
+  border-color: #334155;
+}
+
+.inv-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #800020;
+}
+
+.dark-mode .inv-modal-header h2 {
+  color: #f43f5e;
+}
+
+.inv-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.inv-modal-form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inv-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.inv-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inv-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.dark-mode .inv-form-group label {
+  color: #cbd5e1;
+}
+
+.inv-form-group input,
+.inv-form-group select {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.dark-mode .inv-form-group input,
+.dark-mode .inv-form-group select {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.inv-form-group input:focus,
+.inv-form-group select:focus {
+  outline: none;
+  border-color: #800020;
+}
+
+.inv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.inv-btn-secondary {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dark-mode .inv-btn-secondary {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}

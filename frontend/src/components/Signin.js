@@ -23,10 +23,12 @@ function Signin() {
     e.preventDefault();
 
     try {
-      const res = await axios.post(
-        "https://wealth-ai-backend.onrender.com/api/auth/login",
-        form
-      );
+      let res;
+      try {
+        res = await axios.post("http://localhost:5000/api/auth/login", form, { timeout: 2500 });
+      } catch (localErr) {
+        res = await axios.post("https://wealth-ai-backend.onrender.com/api/auth/login", form);
+      }
 
       const user = res.data.user;
 

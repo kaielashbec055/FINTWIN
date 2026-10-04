@@ -28,31 +28,38 @@ function Signup() {
     }
 
     try {
-      const response = await fetch(
-        "https://wealth-ai-backend.onrender.com/api/auth/register",
-        {
+      let res;
+      try {
+        const localRes = await fetch("http://localhost:5000/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: formData.name,
             email: formData.email,
             password: formData.password
-          }),
-        }
-      );
+          })
+        });
+        res = localRes;
+      } catch (localErr) {
+        res = await fetch("https://wealth-ai-backend.onrender.com/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password
+          })
+        });
+      }
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (response.ok) {
-
+      if (res.ok) {
         alert("Registration successful!");
-
         window.location.href = "/signin";
-
       } else {
         setError(data.msg || "Registration failed");
       }
-
     } catch (err) {
       setError("Server error");
     }

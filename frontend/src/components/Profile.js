@@ -42,7 +42,12 @@ function FinancialProfile() {
           }
         };
         
-        const res = await axios.get("https://wealth-ai-backend.onrender.com/api/profile", config);
+        let res;
+        try {
+          res = await axios.get("http://localhost:5000/api/profile", { ...config, timeout: 2500 });
+        } catch (localErr) {
+          res = await axios.get("https://wealth-ai-backend.onrender.com/api/profile", config);
+        }
         
         if (res.data && Object.keys(res.data).length > 0) {
           setIsEditing(true); // Flag setting: profile exists, so we update instead of create
@@ -142,9 +147,17 @@ function FinancialProfile() {
 
       // FIX: If profile already exists on backend, make a PUT request to update it instead of a POST request
       if (isEditing) {
-        await axios.put("https://wealth-ai-backend.onrender.com/api/profile", payload, config);
+        try {
+          await axios.put("http://localhost:5000/api/profile", payload, { ...config, timeout: 2500 });
+        } catch (localErr) {
+          await axios.put("https://wealth-ai-backend.onrender.com/api/profile", payload, config);
+        }
       } else {
-        await axios.post("https://wealth-ai-backend.onrender.com/api/profile", payload, config);
+        try {
+          await axios.post("http://localhost:5000/api/profile", payload, { ...config, timeout: 2500 });
+        } catch (localErr) {
+          await axios.post("https://wealth-ai-backend.onrender.com/api/profile", payload, config);
+        }
       }
 
       localStorage.setItem("userName", formData.name);
@@ -217,7 +230,7 @@ function FinancialProfile() {
       <div className="profile-container form-view">
         <div className="form-header">
           <div className="meta-badge">PROFILE CONFIGURATION</div>
-          <h2>Tell WealthAI about you.</h2>
+          <h2>Tell FinTwin about you.</h2>
           <p className="sub-instruction-text">
             These numbers stay with you. They power every suggestion we make — loans, schemes, EMI checks.
           </p>

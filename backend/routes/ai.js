@@ -100,9 +100,15 @@ passport.deserializeUser(async (id, done) => {
    AI WORKSPACE ROUTE CHANNELS (INTEGRATED DIRECTLY IN SERVER.JS)
    ========================================================================== */
 
-// ENDPOINT 1: Gemma 4 Text Advisory Engine
+const { generateFinTwinAdvisory } = require("../knowledgeEngine");
+
+function generateFallbackReply(message, selectedBank, userProfile) {
+  return generateFinTwinAdvisory(message, selectedBank, userProfile);
+}
+
+// ENDPOINT 1: Gemma 4 Text Advisory Engine & Multi-Bank Financial Intelligence
 app.post("/api/chat", async (req, res) => {
-  const { message, userProfile } = req.body;
+  const { message, userProfile, selectedBank, bankCategory } = req.body;
 
   if (!message) {
     return res.status(400).json({ error: "Message content is required" });
@@ -121,28 +127,41 @@ app.post("/api/chat", async (req, res) => {
        Risk Appetite: ${userProfile.riskAppetite || "Medium"}`
     : "No financial profile metrics provided.";
 
+  const bankContext = selectedBank 
+    ? `Active Bank Selected by User: ${selectedBank}${bankCategory ? ` (Category: ${bankCategory})` : ""}.
+       IMPORTANT DIRECTIVE: When the user asks questions referring to "this bank", "its loan products", or bank-specific interest rates, answer specifically for ${selectedBank}.`
+    : `No specific bank is currently selected by the user.
+       IMPORTANT DIRECTIVE: Provide comprehensive, general financial explanations and advice across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
+
   try {
     const chatCompletion = await chatClient.chat.completions.create({
       model: "google/gemma-4-31B-it:novita", 
       messages: [
         {
           role: "system",
-          content: `You are FinTwin's Core Financial Advisor, specialized in IDBI Bank digital wealth management solutions.
+          content: `You are FinTwin's Core AI Financial Advisor, an intelligent, objective personal finance and loan specialist for retail borrowers and common users across India.
         
-          CRITICAL CORE OBJECTIVES:
-          1. Always analyze the user's financial profile data structure meticulously. 
-          2. Base your comparative loan eligibility and financial strategies entirely on their specific Monthly Savings and Risk Appetite metrics.
-          3. Emphasize relevant IDBI Bank facilities (like Utsav FDs, Vasundhara Deposits, or Sanjeevani Loans) that match their profile. Do NOT provide generic textbook loan descriptions.
+          CORE IDENTITY & OBJECTIVES:
+          1. You are a GENERAL financial advisor for FinTwin. You are NOT restricted to IDBI Bank or any single bank.
+          2. You provide unbiased, practical guidance across all Indian banks: Public Sector (SBI, BoB, PNB, Canara, Union Bank), Private Sector (HDFC, ICICI, Axis, Kotak, IDBI), Small Finance Banks (AU SFB, Equitas, Ujjivan), Regional Rural Banks (Aryavart, Kerala Gramin, Baroda UP), and Cooperative Banks (Saraswat, Cosmos, SVC).
+          3. You answer questions on:
+             - Loans: Home loans, personal loans, vehicle loans, education loans, gold loans, business/MSME loans, LAP, agriculture loans.
+             - Investments: Fixed deposits, mutual funds, SIPs, PPF, Sukanya Samriddhi, SCSS, NPS, sovereign gold bonds.
+             - Basic Concepts: EMI calculation, debt-to-income (DTI) ratio, compounding, emergency funds, tax-saving (80C, 24b), CIBIL repair.
+             - Profile-Tailored Guidance: Base your advice on user's income, expenses, monthly savings, and risk tolerance.
           
+          ACTIVE CONTEXT:
+          ${bankContext}
+
           User Context:
           ${profileContext}
 
           CRITICAL OUTPUT FORMATTING RULES:
-          1. NEVER use markdown symbols like asterisks (*), hashes (#), dashes (-), or bullet points anywhere in your response text.
-          2. Strictly format all lists and comparative analyses using clean numbered index tracking prefix patterns precisely like this:
+          1. NEVER use markdown asterisks (*), hashes (#), or dashes (-) for bullet points.
+          2. Format all lists and comparative analyses using clean numbered index tracking prefix patterns:
              1. First Item Parameter Description...
              2. Second Item Parameter Description...
-          3. Place every single numbered item strictly on a brand new fresh line using a clean line break character. Do NOT merge multiple points into a standard paragraph chunk.
+          3. Place every single numbered item strictly on a brand new fresh line using a clean line break.
           4. When printing parameters or comparing items, print data fields clearly using one field per line layout structure.
           5. Always ensure money attributes output contains a single prefix symbol '₹' cleanly (e.g., ₹50,000). Never double the symbol.`
         },
@@ -151,34 +170,22 @@ app.post("/api/chat", async (req, res) => {
           content: message,
         },
       ],
-      max_tokens: 400,
+      max_tokens: 500,
       temperature: 0.7
     });
 
-    // DIAGNOSTIC LOG: This will print exactly what the API returned into your command terminal
-    console.log("-----------------------------------------");
-    console.log("RAW HUGGING FACE ROUTER RESPONSE:", JSON.stringify(chatCompletion, null, 2));
-    console.log("-----------------------------------------");
-
-    // Clean English Validation Guard Block
     if (!chatCompletion || !chatCompletion.choices || chatCompletion.choices.length === 0) {
-      return res.json({ reply: "I am unable to generate a response at the moment. Please try again." });
+      return res.json({ reply: generateFallbackReply(message, selectedBank, userProfile) });
     }
 
-    // Safely parse out content using explicit choices array index selector
     let reply = chatCompletion.choices[0].message.content;
-    
-    // Sanitize duplicate rupee symbols from output string stream
     reply = reply.replace(/₹₹/g, "₹");
-
     return res.json({ reply });
     
   } catch (error) {
-    console.error("CRITICAL ROUTE ERROR LOG:", error);
-    return res.status(500).json({ 
-      error: "Failed to communicate with Hugging Face AI interface layer",
-      details: error.message 
-    });
+    console.warn("Chat Route Notice (Employing Intelligent Fallback):", error.message);
+    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile);
+    return res.json({ reply: fallbackReply });
   }
 });
 

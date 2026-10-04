@@ -47,22 +47,33 @@ const Assets = ({ profile = { assets: [], properties: [], riskAppetite: "Medium 
 
     try {
       const token = localStorage.getItem("token");
+      const assetPayload = {
+        name,
+        type,
+        value,
+        institution,
+        isLeveragable
+      };
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : "",
+        "x-auth-token": token || ""
+      };
       
-      const response = await fetch("https://wealth-ai-backend.onrender.com/api/profile/assets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : "",
-          "x-auth-token": token || ""
-        },
-        body: JSON.stringify({
-          name,
-          type,
-          value,
-          institution,
-          isLeveragable
-        })
-      });
+      let response;
+      try {
+        response = await fetch("http://localhost:5000/api/profile/assets", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(assetPayload)
+        });
+      } catch (localErr) {
+        response = await fetch("https://wealth-ai-backend.onrender.com/api/profile/assets", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(assetPayload)
+        });
+      }
 
       const data = await response.json();
       if (response.ok) {
