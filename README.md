@@ -116,60 +116,6 @@ Managing personal finances across multiple Indian financial institutions is noto
 | **AI Advisory (Tier 4)** | **FinTwin Deterministic Knowledge Engine** | Built-in offline fallback rules for 24/7 reliability |
 | **Image Generation** | **FLUX.1-dev** (via InferenceClient) | Generative image synthesis engine for financial goals |
 
----
-
-## 🏗️ System Architecture
-
-```mermaid
-flowchart TD
-    subgraph Client ["Frontend (React 18 SPA)"]
-        UI[Glassmorphic Dashboard]
-        Router[React Router v6]
-        Lang[Language Context / i18n]
-        AdvisorUI[AI Financial Advisor UI]
-        ChatbotUI[FinTwin Smart Assistant Widget]
-        LoansUI[Loans & EMI Radar]
-        InvestUI[Investments Hub]
-        SchemesUI[Govt Schemes Navigator]
-        Maps[Leaflet ATM / Branch Radar]
-    end
-
-    subgraph API_Gateway ["API Routing & Fallback Layer"]
-        AxiosClient[Axios Client (Local:5000 -> Cloud Fallback)]
-    end
-
-    subgraph Backend ["Backend (Node.js & Express 5)"]
-        AuthRoute["/api/auth (Register / Login / JWT / Google OAuth)"]
-        ProfileRoute["/api/profile (Profiles & Assets)"]
-        ChatRoute["/api/chat (Multi-Tier Advisory Engine)"]
-        ImageRoute["/api/generate-image (FLUX.1)"]
-        KnowledgeEngine["Built-in FinTwin Knowledge Engine"]
-    end
-
-    subgraph External ["Cloud AI & External Services"]
-        Firestore[(Firebase Firestore NoSQL)]
-        Gemini[Google Gemini 2.0 Flash]
-        OpenAI[OpenAI GPT-4o-mini]
-        HF[Hugging Face Router / Gemma 4]
-        OSM[OpenStreetMap Tile Server]
-    end
-
-    UI --> Router
-    Router --> AdvisorUI & ChatbotUI & LoansUI & InvestUI & SchemesUI & Maps
-    AdvisorUI & ChatbotUI & LoansUI & InvestUI --> AxiosClient
-    AxiosClient --> Backend
-    
-    AuthRoute --> Firestore
-    ProfileRoute --> Firestore
-    ChatRoute -->|Tier 1: Gemini Key| Gemini
-    ChatRoute -->|Tier 2: OpenAI Key| OpenAI
-    ChatRoute -->|Tier 3: HF Token| HF
-    ChatRoute -->|Tier 4: Offline Fallback| KnowledgeEngine
-    Maps --> OSM
-```
-
----
-
 ## 📂 Project Directory Structure
 
 ```plaintext
