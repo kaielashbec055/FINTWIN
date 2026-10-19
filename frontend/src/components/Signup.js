@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaTimes } from "react-icons/fa";
 import "./auth.css";
 
 function Signup() {
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -10,7 +14,17 @@ function Signup() {
     confirmPassword: "", 
   });
 
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
+
+  // Auto-dismiss toast after 4.5 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const handleChange = (e) => {
     setFormData({
@@ -21,61 +35,82 @@ function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      return setError("Passwords do not match");
+      setToast({
+        type: "error",
+        title: "Validation Error",
+        message: "Passwords do not match"
+      });
+      return;
     }
 
     try {
       let res;
       try {
-        const localRes = await fetch("http://localhost:5000/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password
-          })
-        });
-        res = localRes;
+        // Fast local registration (<200ms)
+        res = await axios.post("http://localhost:5000/api/auth/register", {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        }, { timeout: 4000 });
       } catch (localErr) {
-        res = await fetch("https://wealth-ai-backend.onrender.com/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password
-          })
+        // If local server responded with validation error (e.g. 400 User already exists)
+        if (localErr.response) {
+          throw localErr;
+        }
+        // Fallback only if local server is unreachable
+        res = await axios.post("https://wealth-ai-backend.onrender.com/api/auth/register", {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
         });
       }
 
-      const data = await res.json();
+      // In-app notification (User registered succesfully) without browser alert popup
+      setToast({
+        type: "success",
+        title: "Registration Successful",
+        message: "User registered succesfully"
+      });
 
-      if (res.ok) {
-        alert("Registration successful!");
-        window.location.href = "/signin";
-      } else {
-        setError(data.msg || "Registration failed");
-      }
+      // Smooth navigation to signin page
+      setTimeout(() => {
+        navigate("/signin");
+      }, 1200);
+
     } catch (err) {
-      setError("Server error");
+      setToast({
+        type: "error",
+        title: "Registration Failed",
+        message: err.response?.data?.msg || "Registration failed. Please try again."
+      });
     }
   };
 
   return (
     <div className="auth-container">
+      {toast && (
+        <div className="auth-toast-container">
+          <div className={`auth-toast ${toast.type}`}>
+            <div className="auth-toast-icon">
+              {toast.type === "success" && <FaCheckCircle />}
+              {toast.type === "error" && <FaExclamationCircle />}
+              {toast.type === "info" && <FaInfoCircle />}
+            </div>
+            <div className="auth-toast-content">
+              <div className="auth-toast-title">{toast.title || (toast.type === "success" ? "Success" : "Notice")}</div>
+              <div className="auth-toast-msg">{toast.message}</div>
+            </div>
+            <button className="auth-toast-close" onClick={() => setToast(null)} title="Close notification">
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="auth-card">
-
         <h2>Register</h2>
-
-        {error && (
-          <p style={{ color: "red", textAlign: "center" }}>
-            {error}
-          </p>
-        )}
 
         <form onSubmit={handleSubmit}>
           <input
@@ -118,6 +153,9 @@ function Signup() {
           </button>
         </form>
 
+        <div className="auth-footer" style={{ marginTop: "2rem" }}>
+          Already have an account? <Link to="/signin" className="auth-link"> Sign In</Link>
+        </div>
       </div>
     </div>
   );

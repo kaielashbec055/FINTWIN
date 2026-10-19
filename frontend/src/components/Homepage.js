@@ -263,20 +263,39 @@ function Homepage() {
    const filteredTransactions = (() => {
     if (!transactions || transactions.length === 0) return [];
 
-    const dates = transactions.map(tx => new Date(tx.date));
-    const latestDate = new Date(Math.max(...dates));
+    const now = new Date();
+    const validTimestamps = transactions
+      .map(tx => new Date(tx.date).getTime())
+      .filter(t => !isNaN(t));
+
+    const maxTxTime = validTimestamps.length > 0 ? Math.max(...validTimestamps) : now.getTime();
+    const referenceDate = new Date(Math.max(maxTxTime, now.getTime()));
 
     return transactions.filter((tx) => {
       const txDate = new Date(tx.date);
+      if (isNaN(txDate.getTime())) return true;
+
       switch (selectedPeriod) {
-        case "last_30_days":
-          return txDate >= new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate() - 30);
-        case "last_3_months":
-          return txDate >= new Date(latestDate.getFullYear(), latestDate.getMonth() - 3, latestDate.getDate());
-        case "last_6_months":
-          return txDate >= new Date(latestDate.getFullYear(), latestDate.getMonth() - 6, latestDate.getDate());
-        case "last_year":
-          return txDate >= new Date(latestDate.getFullYear() - 1, latestDate.getMonth(), latestDate.getDate());
+        case "last_30_days": {
+          const limit = new Date(referenceDate);
+          limit.setDate(limit.getDate() - 30);
+          return txDate >= limit;
+        }
+        case "last_3_months": {
+          const limit = new Date(referenceDate);
+          limit.setMonth(limit.getMonth() - 3);
+          return txDate >= limit;
+        }
+        case "last_6_months": {
+          const limit = new Date(referenceDate);
+          limit.setMonth(limit.getMonth() - 6);
+          return txDate >= limit;
+        }
+        case "last_year": {
+          const limit = new Date(referenceDate);
+          limit.setFullYear(limit.getFullYear() - 1);
+          return txDate >= limit;
+        }
         default:
           return true;
       }
@@ -300,13 +319,12 @@ function Homepage() {
       }
     });
   }
-  // No transactions → all zeroes
 
   const calculatedBalance = totalIncome - totalExpenses;
   let calculatedSavingsRate = 0;
 
-  if (totalIncome > 0 && totalIncome >= totalExpenses) {
-    calculatedSavingsRate = ((calculatedBalance / totalIncome) * 100);
+  if (totalIncome > 0 && calculatedBalance > 0) {
+    calculatedSavingsRate = (calculatedBalance / totalIncome) * 100;
   }
 
   const liveMetrics = {
@@ -379,21 +397,6 @@ function Homepage() {
       <aside className="fixed-sidebar-container">
         <div className="sidebar-brand-area">
           <div className="logo-main">Fin<span>Twin</span></div>
-          <div className="sidebar-lang-box">
-            <span style={{ fontSize: "14px" }}>🌐</span>
-            <select
-              className="sidebar-lang-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              title="Select Regional Language"
-            >
-              {supportedLanguages.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.native} ({l.name})
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
         <nav className="sidebar-navigation-links">
           <div className={`nav-link-item ${activeSection === "dashboard" ? "active" : ""}`} onClick={() => setActiveSection("dashboard")}>
@@ -479,19 +482,19 @@ function Homepage() {
             <section className="metrics-summary-grid">
               <div className="metric-card-item">
                 <span className="metric-label">{t('dash_total_balance', 'AVAILABLE BALANCE')}</span>
-                <h3 className="metric-value">₹{metrics.balance.toLocaleString("en-IN")}</h3>
+                <h3 className="metric-value">₹{Number(liveMetrics.balance || 0).toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
                 <span className="metric-label">{t('dash_monthly_income', 'TOTAL INCOME')}</span>
-                <h3 className="metric-value success">₹{metrics.income.toLocaleString("en-IN")}</h3>
+                <h3 className="metric-value success">₹{Number(liveMetrics.income || 0).toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
                 <span className="metric-label">{t('dash_monthly_expenses', 'TOTAL EXPENSES')}</span>
-                <h3 className="metric-value danger">₹{metrics.expenses.toLocaleString("en-IN")}</h3>
+                <h3 className="metric-value danger">₹{Number(liveMetrics.expenses || 0).toLocaleString("en-IN")}</h3>
               </div>
               <div className="metric-card-item">
                 <span className="metric-label">{t('dash_savings_rate', 'SAVINGS RATE')}</span>
-                <h3 className="metric-value interest">{metrics.savingsRate}%</h3>
+                <h3 className="metric-value interest">{liveMetrics.savingsRate}%</h3>
               </div>
             </section>
             <section className="charts-visual-container">

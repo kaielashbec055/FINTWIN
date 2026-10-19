@@ -25,11 +25,14 @@ import { generateFinTwinAdvisory } from '../utils/financialKnowledgeEngine';
 export default function AIAdvisor({ profile }) {
   const { t } = useLanguage();
 
-  // Load chat sessions from localStorage or initialize with a default session
+  // Load chat sessions from localStorage or initialize with a fresh session
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem("fintwin_ai_sessions");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.error("Failed to load chat sessions:", e);
     }
@@ -38,13 +41,7 @@ export default function AIAdvisor({ profile }) {
         id: "default_session",
         title: "Financial Strategy & Wealth",
         updatedAt: new Date().toISOString(),
-        messages: [
-          {
-            id: 1,
-            sender: "ai",
-            text: "Welcome to FinTwin AI Advisor! I am your personal financial assistant across Indian commercial banks, loans, investment portfolios, and government schemes. How can I help you optimize your capital today?"
-          }
-        ]
+        messages: []
       }
     ];
   });
@@ -156,23 +153,49 @@ export default function AIAdvisor({ profile }) {
   // Handle file attachment
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const isText = file.type.includes("text") || file.name.endsWith(".txt") || file.name.endsWith(".csv") || file.name.endsWith(".json");
-      if (isText) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setAttachedFile({ name: file.name, size: `${(file.size / 1024).toFixed(1)} KB`, isText: true, content: event.target.result });
-        };
-        reader.readAsText(file);
-      } else {
-        setAttachedFile({ name: file.name, size: `${(file.size / 1024).toFixed(1)} KB`, isText: false });
-      }
+    if (!file) return;
+
+    const isText = file.type.includes("text") || 
+                   file.name.endsWith(".txt") || 
+                   file.name.endsWith(".csv") || 
+                   file.name.endsWith(".json");
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.name.endsWith(".pdf") || file.type === "application/pdf";
+
+    const fileMeta = {
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(1)} KB`,
+      type: file.type || "application/octet-stream",
+      isText,
+      isImage,
+      isPdf
+    };
+
+    if (isText) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFile({ ...fileMeta, content: event.target.result });
+      };
+      reader.readAsText(file);
+    } else if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFile({ ...fileMeta, dataUrl: event.target.result });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setAttachedFile(fileMeta);
     }
+
+    e.target.value = "";
   };
 
   // Dispatch message to AI Advisor
   const handleSendMessage = async (textToSend) => {
-    const query = (textToSend || inputMessage).trim();
+    let query = (textToSend || inputMessage).trim();
+    if (!query && attachedFile) {
+      query = "Please explain what this document is, its components, and its financial significance.";
+    }
     if (!query && !attachedFile) return;
 
     const userMsgId = Date.now();
@@ -180,13 +203,13 @@ export default function AIAdvisor({ profile }) {
       id: userMsgId,
       sender: "user",
       text: query,
-      file: attachedFile ? { name: attachedFile.name, size: attachedFile.size } : null,
+      file: attachedFile ? { name: attachedFile.name, size: attachedFile.size, type: attachedFile.type } : null,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     // Update session title automatically if this is the first user message
     const isFirstUserMessage = messages.filter(m => m.sender === "user").length === 0;
-    const sessionTitle = isFirstUserMessage ? (query.slice(0, 30) || "Financial Query") : currentSession.title;
+    const sessionTitle = isFirstUserMessage ? (query.slice(0, 32) || "Financial Strategy") : currentSession.title;
 
     // Add user message to session
     setSessions(prev => prev.map(s => {
@@ -211,17 +234,24 @@ export default function AIAdvisor({ profile }) {
       let apiMessage = query;
       if (fileToSend) {
         if (fileToSend.isText && fileToSend.content) {
-          apiMessage = `[Attached Document: ${fileToSend.name}]\nContent:\n${fileToSend.content}\n\nUser Query: ${query || "Please analyze this document."}`;
+          apiMessage = `[Attached Document: ${fileToSend.name} (${fileToSend.size})]\nContent:\n${fileToSend.content.slice(0, 3000)}\n\nUser Query: ${query}`;
         } else {
-          apiMessage = `[Attached Document: ${fileToSend.name} (${fileToSend.size})]\n\nUser Query: ${query || "Please review this financial file."}`;
+          apiMessage = `[Attached Document: ${fileToSend.name} (${fileToSend.size})]\n\nUser Query: ${query}`;
         }
       }
 
       const chatPayload = {
         message: apiMessage,
+        attachedFile: fileToSend ? {
+          name: fileToSend.name,
+          size: fileToSend.size,
+          type: fileToSend.type
+        } : null,
         userProfile: profile,
         selectedBank: activeBank,
-        bankCategory: bankCategory
+        bankCategory: bankCategory,
+        geminiApiKey: localStorage.getItem("fintwin_gemini_api_key") || "",
+        openaiApiKey: localStorage.getItem("fintwin_openai_api_key") || ""
       };
 
       let replyText = "";
@@ -258,7 +288,7 @@ export default function AIAdvisor({ profile }) {
 
       // If backend was unreachable, apply FinTwin smart offline guidance
       if (!replyText) {
-        replyText = generateSmartOfflineGuidance(query, activeBank, profile);
+        replyText = generateFinTwinAdvisory(apiMessage, activeBank, profile, fileToSend);
       }
 
       const aiMsg = {
@@ -398,15 +428,6 @@ export default function AIAdvisor({ profile }) {
             ))
           )}
         </div>
-
-        {activeBank && (
-          <div style={{ marginTop: "auto", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Active Bank</span>
-            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#800020", marginTop: "2px" }}>
-              {activeBank}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 2. MAIN CHAT AREA */}
@@ -420,15 +441,9 @@ export default function AIAdvisor({ profile }) {
             </div>
           </div>
 
-          {activeBank ? (
-            <div className="context-tag-pill">
-              <Landmark size={14} /> Active Context: {activeBank}
-            </div>
-          ) : (
-            <div className="context-tag-pill" style={{ color: "#059669", background: "#ecfdf5", borderColor: "#a7f3d0" }}>
-              <ShieldCheck size={14} /> Universal Financial Mode
-            </div>
-          )}
+          <div className="context-tag-pill" style={{ color: "#059669", background: "#ecfdf5", borderColor: "#a7f3d0" }}>
+            <ShieldCheck size={14} /> Universal Financial Mode
+          </div>
         </div>
 
         {/* 3. MESSAGE STREAM OR EMPTY STATE */}
@@ -440,42 +455,8 @@ export default function AIAdvisor({ profile }) {
               </div>
               <h2>{t("ai_welcome_title", "How can I help you manage your finances today?")}</h2>
               <p>
-                {t("ai_welcome_desc", "I am your FinTwin AI Financial Advisor. Ask me anything about Indian banks, loan eligibility, investment portfolios, government schemes, or financial planning.")}
+                {t("ai_welcome_desc", "Ask me anything about loans, interest rates, tax optimization, and investments, or attach any financial document to explain it.")}
               </p>
-
-              <div className="empty-suggestions-grid">
-                <div 
-                  className="suggestion-card" 
-                  onClick={() => handleSendMessage("Compare SBI vs HDFC Home Loans with interest rates")}
-                >
-                  <span>Compare SBI vs HDFC Home Loans</span>
-                  <ArrowRight size={14} className="suggestion-card-arrow" />
-                </div>
-
-                <div 
-                  className="suggestion-card" 
-                  onClick={() => handleSendMessage("How much emergency fund do I need based on my monthly expenses?")}
-                >
-                  <span>How much emergency fund do I need?</span>
-                  <ArrowRight size={14} className="suggestion-card-arrow" />
-                </div>
-
-                <div 
-                  className="suggestion-card" 
-                  onClick={() => handleSendMessage("Which government schemes offer the highest risk-free returns for common citizens?")}
-                >
-                  <span>Top government wealth schemes</span>
-                  <ArrowRight size={14} className="suggestion-card-arrow" />
-                </div>
-
-                <div 
-                  className="suggestion-card" 
-                  onClick={() => handleSendMessage("Calculate EMI for ₹25 Lakhs at 8.5% interest for 20 years")}
-                >
-                  <span>Calculate EMI for ₹25 Lakhs at 8.5% for 20y</span>
-                  <ArrowRight size={14} className="suggestion-card-arrow" />
-                </div>
-              </div>
             </div>
           ) : (
             messages.map(msg => (
@@ -486,8 +467,11 @@ export default function AIAdvisor({ profile }) {
                 <div className="turn-bubble">
                   {msg.file && (
                     <div className="turn-bubble-file">
-                      <FileText size={14} />
-                      <span>{msg.file.name} ({msg.file.size})</span>
+                      <div className="turn-bubble-file-icon">📄</div>
+                      <div className="turn-bubble-file-details">
+                        <span className="turn-bubble-file-name">{msg.file.name}</span>
+                        <span className="turn-bubble-file-meta">{msg.file.size} • Attached Document</span>
+                      </div>
                     </div>
                   )}
 
@@ -643,11 +627,33 @@ export default function AIAdvisor({ profile }) {
 
         {/* 4. CHATGPT-STYLE BOTTOM INPUT BAR */}
         <div className="advisor-input-container">
+
           {attachedFile && (
             <div className="attached-file-preview-strip">
-              <FileText size={14} color="#800020" />
-              <span>{attachedFile.name} ({attachedFile.size})</span>
-              <button className="remove-file-pill-btn" onClick={() => setAttachedFile(null)}>×</button>
+              <div className="attached-file-info-group">
+                <FileText size={16} color="#800020" />
+                <div className="attached-file-text">
+                  <span className="attached-file-name">{attachedFile.name}</span>
+                  <span className="attached-file-meta">{attachedFile.size} • Attached Document</span>
+                </div>
+              </div>
+              <div className="attached-file-actions">
+                <button
+                  type="button"
+                  className="explain-doc-btn"
+                  onClick={() => handleSendMessage("Please explain what this document is, its components, and its financial significance.")}
+                >
+                  <Sparkles size={13} /> Explain this Document
+                </button>
+                <button 
+                  type="button" 
+                  className="remove-file-pill-btn" 
+                  onClick={() => setAttachedFile(null)}
+                  title="Remove document"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           )}
 
@@ -659,7 +665,7 @@ export default function AIAdvisor({ profile }) {
                 style={{ display: "none" }} 
                 onChange={handleFileChange}
               />
-              <label htmlFor="ai-advisor-file-input" className="chat-attach-btn" title="Attach document or statement">
+              <label htmlFor="ai-advisor-file-input" className="chat-attach-btn" title="Attach financial document or statement">
                 <Paperclip size={18} />
               </label>
             </div>
@@ -670,7 +676,7 @@ export default function AIAdvisor({ profile }) {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t("ai_placeholder", "Ask FinTwin about loans, investments, schemes, EMI calculation, or financial advice...")}
+              placeholder={attachedFile ? "Ask a question about this document or click 'Explain this Document' above..." : t("ai_placeholder", "Ask FinTwin about loans, investments, schemes, EMI calculation, or financial advice...")}
               className="chat-input-textarea"
               disabled={isLoading}
             />
@@ -680,6 +686,7 @@ export default function AIAdvisor({ profile }) {
               onClick={() => handleSendMessage()}
               disabled={!(inputMessage.trim() || attachedFile) || isLoading}
               className={`chat-send-circle-btn ${(inputMessage.trim() || attachedFile) && !isLoading ? 'active' : ''}`}
+              title="Send message"
             >
               <ArrowUp size={18} />
             </button>
@@ -695,6 +702,6 @@ export default function AIAdvisor({ profile }) {
 }
 
 // Smart Financial Advisor Knowledge Engine
-function generateSmartOfflineGuidance(query, activeBank, profile) {
-  return generateFinTwinAdvisory(query, activeBank, profile);
+function generateSmartOfflineGuidance(query, activeBank, profile, attachedFile) {
+  return generateFinTwinAdvisory(query, activeBank, profile, attachedFile);
 }

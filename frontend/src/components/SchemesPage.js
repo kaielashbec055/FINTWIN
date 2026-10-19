@@ -290,10 +290,10 @@ const SchemesPage = () => {
       {/* Header */}
       <div className="schemes-header">
         <div className="schemes-badge">
-          🇮🇳 Government of India • myScheme Citizen Service
+          🇮🇳 Government of India • Citizen Welfare Service
         </div>
         <h1>{t('schemes_title', 'Government of India Schemes Portal')}</h1>
-        <p>{t('schemes_subtitle', 'Authentic sovereign schemes from myScheme (myscheme.gov.in) categorized for common citizens')}</p>
+        <p>{t('schemes_subtitle', 'Authentic sovereign welfare schemes categorized for common citizens')}</p>
       </div>
 
       {/* Official Banner */}
@@ -301,8 +301,8 @@ const SchemesPage = () => {
         <div className="myscheme-banner-left">
           <span className="myscheme-logo-emblem">🏛️</span>
           <div className="myscheme-banner-text">
-            <h3>Powered by Government of India myScheme Platform</h3>
-            <p>One-stop search and discovery platform for Central and State Government schemes across India.</p>
+            <h3>Government of India Schemes Portal</h3>
+            <p>One-stop discovery platform for Central and State Government subsidies and welfare schemes across India.</p>
           </div>
         </div>
         <a
@@ -311,7 +311,7 @@ const SchemesPage = () => {
           rel="noopener noreferrer"
           className="myscheme-portal-link"
         >
-          Open myScheme.gov.in ↗
+          For more details click here ↗
         </a>
       </div>
 
@@ -383,7 +383,7 @@ const SchemesPage = () => {
                 rel="noopener noreferrer"
                 className="scheme-btn-external"
               >
-                myScheme ↗
+                For more details click here ↗
               </a>
             </div>
           </div>
@@ -489,7 +489,7 @@ const SchemesPage = () => {
                   gap: '6px'
                 }}
               >
-                Apply via myScheme.gov.in ↗
+                For more details click here ↗
               </a>
             </div>
           </div>

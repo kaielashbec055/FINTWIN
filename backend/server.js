@@ -4,6 +4,7 @@ const cors = require("cors");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const session = require("express-session");
+const jwt = require("jsonwebtoken");
 
 const { db } = require("./config/firebase");
 
@@ -41,41 +42,55 @@ const chatClient = new OpenAI({
 
 const imageClient = new InferenceClient(process.env.HF_TOKEN);
 
-passport.use(new GoogleStrategy(
-  {
-    clientID: process.env.GOOGLE_CLIENT_ID || "placeholder-client-id",
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "placeholder-client-secret",
-    callbackURL: "http://localhost:5000/api/auth/google/callback"
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      const email = profile.emails[0].value;
-      const usersRef = db.collection("users");
-      
-      const snapshot = await usersRef.where("email", "==", email).limit(1).get();
-      let user = null;
+const googleClientID = process.env.GOOGLE_CLIENT_ID || "1022674931649-snp98iijgkg51ie5c31j5tc94r3ie7m4.apps.googleusercontent.com";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-      if (snapshot.empty) {
-        const newUserRef = await usersRef.add({
-          name: profile.displayName,
-          email: email,
-          googleId: profile.id,
-          createdAt: new Date().toISOString(),
-          profileCompleted: false
-        });
-        
-        user = { id: newUserRef.id, name: profile.displayName, email };
-      } else {
-        const doc = snapshot.docs[0];
-        user = { id: doc.id, ...doc.data() };
+let isGoogleAuthEnabled = false;
+if (googleClientID && googleClientSecret) {
+  try {
+    passport.use(new GoogleStrategy(
+      {
+        clientID: googleClientID,
+        clientSecret: googleClientSecret,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback"
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = (profile.emails && profile.emails[0]) ? profile.emails[0].value : `${profile.id}@gmail.com`;
+          const usersRef = db.collection("users");
+          
+          const snapshot = await usersRef.where("email", "==", email).limit(1).get();
+          let user = null;
+
+          if (snapshot.empty) {
+            const newUserRef = await usersRef.add({
+              name: profile.displayName,
+              email: email,
+              googleId: profile.id,
+              createdAt: new Date().toISOString(),
+              profileCompleted: false
+            });
+            
+            user = { id: newUserRef.id, name: profile.displayName, email };
+          } else {
+            const doc = snapshot.docs[0];
+            user = { id: doc.id, ...doc.data() };
+          }
+
+          done(null, user);
+        } catch (err) {
+          done(err, null);
+        }
       }
-
-      done(null, user);
-    } catch (err) {
-      done(err, null);
-    }
+    ));
+    isGoogleAuthEnabled = true;
+    console.log("Google OAuth Strategy registered successfully.");
+  } catch (err) {
+    console.error("Notice: Could not initialize Google OAuth Strategy:", err.message);
   }
-));
+} else {
+  console.log("Notice: GOOGLE_CLIENT_SECRET not set in .env yet. Google OAuth endpoints will show informative prompt.");
+}
 
 passport.serializeUser((user, done) => done(null, user.id));
 
@@ -98,21 +113,39 @@ passport.deserializeUser(async (id, done) => {
 
 const { generateFinTwinAdvisory } = require("./knowledgeEngine");
 
-function generateFallbackReply(message, selectedBank, userProfile) {
-  return generateFinTwinAdvisory(message, selectedBank, userProfile);
+// Optional: Initialize Google GenAI if GEMINI_API_KEY is available
+let geminiClient = null;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    const { GoogleGenAI } = require("@google/genai");
+    geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  } catch (err) {
+    console.warn("Notice: Gemini client could not be initialized:", err.message);
+  }
 }
 
-// ENDPOINT 1: Gemma 4 Text Advisory Engine & Multi-Bank Financial Intelligence
-app.post("/api/chat", async (req, res) => {
-  const { message, userProfile, selectedBank, bankCategory } = req.body;
+function generateFallbackReply(message, selectedBank, userProfile, attachedFile) {
+  return generateFinTwinAdvisory(message, selectedBank, userProfile, attachedFile);
+}
 
-  if (!message) {
+// ENDPOINT 1: Dual-Engine AI Financial Advisory (Gemini / HF with Instant Intelligent Fallback)
+app.post("/api/chat", async (req, res) => {
+  const { message, userProfile, selectedBank, bankCategory, attachedFile } = req.body;
+
+  if (!message || typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "Message content is required" });
   }
 
-  const income = Number(userProfile?.monthlyIncome) || 0;
-  const expenses = Number(userProfile?.monthlyExpenses) || 0;
-  const savings = income - expenses;
+  const rawIncomeVal = typeof userProfile?.monthlyIncome === "string" 
+    ? userProfile.monthlyIncome.replace(/[₹,]/g, "") 
+    : userProfile?.monthlyIncome;
+  const rawExpensesVal = typeof userProfile?.monthlyExpenses === "string" 
+    ? userProfile.monthlyExpenses.replace(/[₹,]/g, "") 
+    : userProfile?.monthlyExpenses;
+
+  const income = Number(rawIncomeVal) || 0;
+  const expenses = Number(rawExpensesVal) || 0;
+  const savings = Math.max(income - expenses, 0);
 
   const profileContext = userProfile 
     ? `User Profile:
@@ -127,62 +160,113 @@ app.post("/api/chat", async (req, res) => {
     ? `Active Bank Selected by User: ${selectedBank}${bankCategory ? ` (Category: ${bankCategory})` : ""}.
        IMPORTANT DIRECTIVE: When the user asks questions referring to "this bank", "its loan products", or bank-specific interest rates, answer specifically for ${selectedBank}.`
     : `No specific bank is currently selected by the user.
-       IMPORTANT DIRECTIVE: Provide comprehensive, general financial explanations and advice across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
+       IMPORTANT DIRECTIVE: Provide comprehensive, practical guidance across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
 
-  try {
-    const chatCompletion = await chatClient.chat.completions.create({
-      model: "google/gemma-4-31B-it:novita", 
-      messages: [
-        {
-          role: "system",
-          content: `You are FinTwin's Core AI Financial Advisor, an intelligent, objective personal finance and loan specialist for retail borrowers and common users across India.
-        
-          CORE IDENTITY & OBJECTIVES:
-          1. You are a GENERAL financial advisor for FinTwin. You are NOT restricted to IDBI Bank or any single bank.
-          2. You provide unbiased, practical guidance across all Indian banks: Public Sector (SBI, BoB, PNB, Canara, Union Bank), Private Sector (HDFC, ICICI, Axis, Kotak, IDBI), Small Finance Banks (AU SFB, Equitas, Ujjivan), Regional Rural Banks (Aryavart, Kerala Gramin, Baroda UP), and Cooperative Banks (Saraswat, Cosmos, SVC).
-          3. You answer questions on:
-             - Loans: Home loans, personal loans, vehicle loans, education loans, gold loans, business/MSME loans, LAP, agriculture loans.
-             - Investments: Fixed deposits, mutual funds, SIPs, PPF, Sukanya Samriddhi, SCSS, NPS, sovereign gold bonds.
-             - Basic Concepts: EMI calculation, debt-to-income (DTI) ratio, compounding, emergency funds, tax-saving (80C, 24b), CIBIL repair.
-             - Profile-Tailored Guidance: Base your advice on user's income, expenses, monthly savings, and risk tolerance.
-          
-          ACTIVE CONTEXT:
-          ${bankContext}
+  const docInstruction = (attachedFile || message.includes("[Attached Document:"))
+    ? `\nDOCUMENT ANALYSIS & EXPLANATION DIRECTIVE:
+The user has attached a document named "${attachedFile?.name || 'financial file'}".
+When the user asks to explain the document (or "what is this document"):
+1. Clearly identify what document this is (e.g. Salary Slip, Bank Statement, Form 16, ITR-V, Loan Sanction Letter, Insurance Policy, Demat Portfolio, KYC Proof).
+2. Explain its primary purpose and who issues it.
+3. Detail its key components and numbers (Gross/Net, Deductions, Balances, Rates, etc.).
+4. Describe its role in Indian banking, loan underwriting, and tax compliance.
+5. Provide practical verification tips and security advice.`
+    : "";
 
-          User Context:
-          ${profileContext}
+  // 1. Attempt Google Gemini if API Key is configured (from .env or frontend payload)
+  const activeGeminiKey = req.body?.geminiApiKey || req.body?.apiKey || process.env.GEMINI_API_KEY;
+  if (activeGeminiKey && typeof activeGeminiKey === "string" && activeGeminiKey.trim()) {
+    try {
+      const { GoogleGenAI } = require("@google/genai");
+      const client = new GoogleGenAI({ apiKey: activeGeminiKey.trim() });
+      const prompt = `You are FinTwin's Core AI Financial Advisor, an intelligent, objective personal finance, loan, and investment specialist for retail borrowers and savers across India.
+Context:
+${bankContext}
+${profileContext}
+${docInstruction}
 
-          CRITICAL OUTPUT FORMATTING RULES:
-          1. NEVER use markdown asterisks (*), hashes (#), or dashes (-) for bullet points.
-          2. Format all lists and comparative analyses using clean numbered index tracking prefix patterns:
-             1. First Item Parameter Description...
-             2. Second Item Parameter Description...
-          3. Place every single numbered item strictly on a brand new fresh line using a clean line break.
-          4. When printing parameters or comparing items, print data fields clearly using one field per line layout structure.
-          5. Always ensure money attributes output contains a single prefix symbol '₹' cleanly (e.g., ₹50,000). Never double the symbol.`
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7
-    });
+User Query: ${message}
 
-    if (!chatCompletion || !chatCompletion.choices || chatCompletion.choices.length === 0) {
-      return res.json({ reply: generateFallbackReply(message, selectedBank, userProfile) });
+Instructions:
+Provide a clear, accurate, practical response tailored to Indian personal finance. Format cleanly with bullet points, numbered steps, and ₹ currency symbols.`;
+
+      const response = await client.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt
+      });
+
+      if (response && response.text) {
+        return res.json({ reply: response.text });
+      }
+    } catch (geminiError) {
+      console.warn("Gemini Advisory Route Notice (Switching to Intelligent Knowledge Engine):", geminiError.message);
     }
-
-    let reply = chatCompletion.choices[0].message.content;
-    reply = reply.replace(/₹₹/g, "₹");
-    return res.json({ reply });
-    
-  } catch (error) {
-    console.warn("Chat Route Notice (Employing Intelligent Fallback):", error.message);
-    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile);
-    return res.json({ reply: fallbackReply });
   }
+
+  // 2. Attempt OpenAI if OPENAI_API_KEY is configured
+  const activeOpenAIKey = req.body?.openaiApiKey || process.env.OPENAI_API_KEY;
+  if (activeOpenAIKey && typeof activeOpenAIKey === "string" && activeOpenAIKey.trim()) {
+    try {
+      const { OpenAI: OpenAISDK } = require("openai");
+      const oai = new OpenAISDK({ apiKey: activeOpenAIKey.trim() });
+      const completion = await oai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { 
+            role: "system", 
+            content: `You are FinTwin's Core AI Financial Advisor for retail Indian users. Context: ${bankContext} ${profileContext} ${docInstruction}` 
+          },
+          { role: "user", content: message }
+        ],
+        max_tokens: 700
+      });
+      if (completion?.choices?.[0]?.message?.content) {
+        return res.json({ reply: completion.choices[0].message.content });
+      }
+    } catch (oaiError) {
+      console.warn("OpenAI Route Notice:", oaiError.message);
+    }
+  }
+
+  // 3. Attempt Hugging Face Router if a real HF_TOKEN is configured
+  const hasValidHfToken = process.env.HF_TOKEN && 
+    process.env.HF_TOKEN !== "placeholder_token" && 
+    !process.env.HF_TOKEN.includes("placeholder");
+
+  if (hasValidHfToken) {
+    try {
+      const chatCompletion = await chatClient.chat.completions.create({
+        model: "google/gemma-4-31B-it:novita", 
+        messages: [
+          {
+            role: "system",
+            content: `You are FinTwin's Core AI Financial Advisor, an intelligent personal finance and loan specialist for retail borrowers across India.
+Provide unbiased guidance across Public Sector, Private, Small Finance, Regional Rural, and Cooperative Banks.
+Active Bank Context: ${bankContext}
+User Context: ${profileContext}
+${docInstruction}`
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        max_tokens: 600,
+        temperature: 0.7
+      });
+
+      if (chatCompletion?.choices?.[0]?.message?.content) {
+        let reply = chatCompletion.choices[0].message.content.replace(/₹₹/g, "₹");
+        return res.json({ reply });
+      }
+    } catch (hfError) {
+      console.warn("HuggingFace Route Notice (Switching to Intelligent Knowledge Engine):", hfError.message);
+    }
+  }
+
+  // 4. Resilient Deterministic Knowledge Engine (Always accurate, 100% uptime, zero quota limits)
+  const reply = generateFallbackReply(message, selectedBank, userProfile, attachedFile);
+  return res.json({ reply });
 });
 
 // ENDPOINT 2: FLUX.1 Image Generation Engine
@@ -223,15 +307,61 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/profile", require("./routes/profile"));
 
 app.get("/api/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  (req, res, next) => {
+    if (!isGoogleAuthEnabled) {
+      return res.redirect("http://localhost:3000/signin?error=" + encodeURIComponent("Google Client Secret is not configured in backend/.env yet. Please paste your secret and restart the server."));
+    }
+    passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account" })(req, res, next);
+  }
 );
 
 app.get("/api/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
+  passport.authenticate("google", { failureRedirect: "http://localhost:3000/signin?error=" + encodeURIComponent("Google authentication was not completed or failed.") }),
   (req, res) => {
-    res.redirect("http://localhost:3000/profile");
+    try {
+      const payload = {
+        user: {
+          id: req.user.id
+        }
+      };
+      const token = jwt.sign(
+        payload,
+        process.env.JWT_SECRET || "mysecretkey",
+        { expiresIn: "1d" }
+      );
+
+      const userParams = new URLSearchParams({
+        oauth_token: token,
+        id: req.user.id || "",
+        name: req.user.name || "",
+        email: req.user.email || "",
+        age: req.user.age || "",
+        phone: req.user.phone || "",
+        occupation: req.user.occupation || "",
+        employmentType: req.user.employmentType || "",
+        city: req.user.city || "",
+        dependents: req.user.dependents || "",
+        monthlyIncome: req.user.monthlyIncome || "",
+        monthlyExpenses: req.user.monthlyExpenses || "",
+        riskTolerance: req.user.riskTolerance || "",
+        investmentTimeline: req.user.investmentTimeline || "",
+        financialGoals: req.user.financialGoals || ""
+      });
+
+      res.redirect(`http://localhost:3000/signin?${userParams.toString()}`);
+    } catch (err) {
+      console.error("OAuth token generation error:", err);
+      res.redirect("http://localhost:3000/signin?error=" + encodeURIComponent("Failed to generate login session token."));
+    }
   }
 );
+
+app.get("/api/auth/facebook", (req, res) => {
+  if (!process.env.FACEBOOK_APP_ID || !process.env.FACEBOOK_APP_SECRET) {
+    return res.redirect("http://localhost:3000/signin?error=" + encodeURIComponent("Facebook App ID & Secret are not configured in backend/.env yet."));
+  }
+  res.redirect("http://localhost:3000/signin?error=" + encodeURIComponent("Facebook authentication service connecting..."));
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

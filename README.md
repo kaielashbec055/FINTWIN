@@ -1,18 +1,18 @@
 <div align="center">
 
-# 💎 FinTwin (Wealth AI)
+# 💎 FinTwin
 ### *Next-Generation AI-Powered Multi-Bank Personal Finance, Loans & Wealth Management Ecosystem*
 
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![AI-Powered](https://img.shields.io/badge/AI-Gemma%204%20%7C%20FLUX.1-blueviolet?logo=huggingface&logoColor=white)](https://huggingface.co/)
+[![AI-Engine](https://img.shields.io/badge/AI-Gemini%202.0%20Flash%20%7C%20Gemma%204%20%7C%20GPT--4o--mini-blueviolet?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Leaflet](https://img.shields.io/badge/Maps-Leaflet%20OSM-199900?logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <b>Unifying fragmented bank accounts, intelligent loan eligibility matching, automated wealth projection, and government subsidy navigation into a single, cohesive, multilingual experience.</b>
+  <b>Unifying fragmented bank accounts, intelligent loan eligibility matching, automated wealth projection, document intelligence, and government subsidy navigation into a single, cohesive, multilingual experience.</b>
 </p>
 
 [Key Features](#-key-features) • [System Architecture](#-system-architecture) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [API Reference](#-api-endpoints) • [Contributing](#-contributing)
@@ -27,9 +27,11 @@ Managing personal finances across multiple Indian financial institutions is noto
 
 **FinTwin** solves this by delivering a centralized, intelligent financial operating system:
 - **Unified Multi-Bank Dashboard**: Aggregate and track balances, cash flows, and transactions across Public, Private, Small Finance, and Regional Rural Banks.
-- **Context-Aware AI Financial Advisor**: Leverages advanced LLMs (Gemma 4 / Hugging Face Router) coupled with an offline-capable deterministic financial knowledge engine for personalized advice on debt reduction, taxation (Sections 80C, 24b), and portfolio rebalancing.
+- **Multi-Tier AI Financial Advisory**: Powered by Google Gemini 2.0 Flash, OpenAI GPT-4o-mini, Hugging Face Gemma 4, and an offline-resilient deterministic financial knowledge engine for personalized advice on debt reduction, taxation (New vs. Old Regime under Budget 2024/2025), and portfolio rebalancing.
 - **Smart Lending & Dynamic EMI Radar**: Compare real-time interest rates, run visual loan amortizations, and verify borrowing eligibility across India's top lending institutions.
-- **Comprehensive Wealth Management**: Track Mutual Funds, Equity, Fixed Deposits, Gold, and Crypto with risk scoring and compound growth projections.
+- **Document Intelligence**: Upload and verify critical financial documents (Salary Slips, Form 16, Bank Statements, Demat CAS, Loan Sanction letters) with instant AI-driven breakdowns.
+- **Interactive FinTwin Smart Assistant**: Floating conversational AI assistant offering instant bank comparisons, official portal deep-links, and rapid financial calculations.
+- **Comprehensive Wealth Management**: Track Mutual Funds, Equity, Fixed Deposits, Gold (SGB), and Crypto with risk scoring and compound growth projections.
 - **Government Welfare Navigator**: Discover relevant central & state welfare schemes, subsidies, and grants with one-click eligibility matching.
 
 ---
@@ -37,43 +39,59 @@ Managing personal finances across multiple Indian financial institutions is noto
 ## ✨ Key Features
 
 ### 🏦 1. Multi-Bank Account Aggregation & ATM/Branch Radar
-- **Multi-Bank Support**: Pre-configured profiles and balance tracking for **State Bank of India (SBI)**, **HDFC Bank**, **ICICI Bank**, **Axis Bank**, **Punjab National Bank (PNB)**, **Kotak Mahindra**, **Bank of Baroda**, and more.
+- **Multi-Bank Support**: Pre-configured profiles and balance tracking for **State Bank of India (SBI)**, **HDFC Bank**, **ICICI Bank**, **Axis Bank**, **Punjab National Bank (PNB)**, **Kotak Mahindra**, **Bank of Baroda**, Small Finance Banks, and Regional Rural Banks.
 - **Geo-Enabled Locator**: Interactive OpenStreetMap / Leaflet radar with location search to find nearby bank branches and ATMs.
-- **Deep-Dive Portals**: Bank-specific views (`/bank/:bankName`) detailing interest slabs, net banking links, and customer support.
+- **Deep-Dive Portals**: Bank-specific views detailing interest slabs, net banking links, and customer support.
 
-### 🤖 2. FinTwin AI Financial Advisor & Knowledge Engine
-- **Hybrid AI Intelligence**: Combines cutting-edge LLMs (`google/gemma-4-31B-it` via Hugging Face Gateway) with a resilient, built-in **Financial Knowledge Engine** that functions seamlessly even without external API quotas.
-- **Personalized Insights**: Adapts recommendations to user profile metrics (Monthly Income, Fixed Expenses, Savings Rate, Risk Appetite, Occupation).
+### 🤖 2. Multi-Tier FinTwin AI Financial Advisor
+- **Resilient AI Orchestration**: Seamless multi-tiered fallback architecture ensuring 100% uptime:
+  1. **Tier 1 (Google Gemini 2.0 Flash)**: Ultra-fast, context-rich reasoning via `@google/genai`.
+  2. **Tier 2 (OpenAI GPT-4o-mini)**: Comprehensive secondary LLM inference.
+  3. **Tier 3 (Hugging Face Router - Gemma 4)**: Open-weights inference via Hugging Face InferenceClient.
+  4. **Tier 4 (FinTwin Offline Knowledge Engine)**: Built-in deterministic heuristics that work completely offline with zero quota limits or external API dependencies.
+- **Tailored Personalization**: Dynamically incorporates user metrics (Monthly Income, Fixed Expenses, Savings Rate, Risk Appetite, Occupation) into every recommendation.
 - **Domain Specializations**:
   - Debt payoff strategies (Snowball vs. Avalanche)
-  - Tax optimization for New vs. Old Tax Regimes
+  - Tax optimization for New vs. Old Tax Regimes under current Finance Acts
   - Emergency fund readiness & CIBIL score enhancement roadmap
-  - Quick action prompt shortcuts for rapid analysis
+  - Quick action prompt shortcuts for rapid financial analysis
 
-### 💳 3. Intelligent Loans & EMI Calculator Hub
+### 📄 3. Document Analysis & Verification Engine
+- **Supported Formats**: Salary Slips, Form 16, Bank Statements, ITR-V Ack receipts, Loan Sanction Letters, Insurance Policies, and Demat Holdings.
+- **Automated Breakdown**: Explains purpose, issuing authority, gross/net splits, deductions, interest rates, and loan underwriting significance.
+- **Practical Checklists**: Highlights security guidelines (password protection, verified summaries) and official verification steps.
+
+### 💬 4. FinTwin Smart Assistant (Conversational Chatbot)
+- **Floating Interactive Widget**: Collapsible, responsive widget accessible from anywhere in the application.
+- **Instant Bank & Rate Lookup**: One-click queries for home loan, personal loan, car loan, and education loan rates across all major banks.
+- **Direct Official Links**: Instant navigation buttons to verified banking and government portals.
+- **Hybrid Response Engine**: Automatically queries active backend AI endpoints with instant deterministic fallback.
+
+### 💳 5. Intelligent Loans & Dynamic Visual EMI Calculator Hub
 - **Multi-Category Loans**: Compare Home Loans, Personal Loans, Vehicle Loans, and Education Loans side-by-side.
 - **Interactive Visual EMI Calculator**: Dynamic sliders for loan principal, tenure, and interest rate with live Recharts pie charts displaying Total Interest vs. Principal.
 - **Eligibility Assessment**: Automatic debt-to-income (DTI) calculations to highlight safe borrowing limits.
 
-### 📈 4. Wealth & Investment Portfolio Tracker
+### 📈 6. Wealth & Investment Portfolio Tracker
 - **Asset Allocation Breakdown**: Real-time visualization of portfolios across Stocks, Mutual Funds, Fixed Deposits, Gold, Real Estate, and Digital Assets.
 - **SIP & Compounding Projections**: Interactive calculators illustrating 5, 10, and 20-year wealth growth under conservative, moderate, and aggressive CAGR assumptions.
 - **Risk Profiling**: Dynamic suggestions aligned with conservative, balanced, or aggressive risk appetites.
 
-### 🏛️ 5. Central & State Government Welfare Schemes Navigator
+### 🏛️ 7. Central & State Government Welfare Schemes Navigator
 - **Comprehensive Scheme Catalog**: Direct access to schemes including **PM Jan Dhan Yojana (PMJDY)**, **Atal Pension Yojana (APY)**, **Sukanya Samriddhi Yojana (SSY)**, **Pradhan Mantri Awas Yojana (PMAY)**, **Sovereign Gold Bonds (SGB)**, and **PM-KISAN**.
 - **Personalized Eligibility Filter**: Instant matching based on age, income brackets, gender, and employment status.
 - **Direct Application Links**: Official portal links and documentation checklists for seamless enrollment.
 
-### 🎯 6. Financial Goal Planner & Target Milestones
+### 🎯 8. Financial Goal Planner & Target Milestones
 - **Target Tracking**: Dedicated trackers for Emergency Fund, Home Down Payment, Vehicle Purchase, Higher Education, and Retirement.
 - **Automated Monthly SIP Required**: Calculates the exact monthly savings required to hit deadlines based on inflation and expected returns.
 
-### 🔐 7. Encrypted Document Vault
-- **Digital Financial Locker**: Store and categorize critical identity and financial documents (PAN Card, Aadhaar, ITR receipts, Salary Slips, Loan Sanction Letters).
-- **Verification Status**: Tag-based validation states and expiry reminders.
+### 🔐 9. Authentication & Security
+- **Flexible Login Options**: Secure email/password login, Google OAuth 2.0 social sign-in, and one-click Fast Demo Guest Login.
+- **Stateless Bearer Tokens**: Cryptographically signed JWTs with automatic session persistence and secure profile restoration.
+- **Encrypted Document Vault**: Store and manage categorized identity and financial proofs with verification badges.
 
-### 🌐 8. Multilingual Accessibility
+### 🌐 10. Multilingual Accessibility
 - **Full Localization**: Seamlessly switch between **English**, **Hindi (हिंदी)**, **Tamil (தமிழ்)**, **Telugu (తెలుగు)**, and **Kannada (ಕನ್ನಡ)**.
 - **Dynamic Context**: Instant UI string and numeric formatting updates via React's `LanguageContext`.
 
@@ -88,13 +106,15 @@ Managing personal finances across multiple Indian financial institutions is noto
 | **Data Visualization** | **Recharts** | Smooth, responsive Area, Bar, and Pie charts |
 | **Icons & Design** | **Lucide React** + **React Icons** | Modern, accessible iconography |
 | **Maps & Geolocation** | **Leaflet** + **React-Leaflet** | Interactive OpenStreetMap integration & branch search |
-| **Styling** | **Custom CSS3 / Glassmorphic Tokens** | Dark-mode design system with responsive layouts |
+| **Styling** | **Custom CSS3 / Glassmorphic Design System** | Modern dark-mode UI with polished animations & cards |
 | **Backend Framework** | **Node.js** + **Express.js (v5)** | Modular REST API server with middleware architecture |
 | **Database** | **Firebase Firestore** | Scalable NoSQL cloud database for users & profiles |
 | **Authentication** | **JWT** + **Bcrypt.js** + **Passport.js** | Secure password hashing, JWT sessions, and Google OAuth |
-| **AI / Machine Learning** | **Google Gemma 4** (via Hugging Face) | Deep financial conversational advisory engine |
-| **Image Generation** | **FLUX.1-dev** (via InferenceClient) | Generative image synthesis engine |
-| **Knowledge Engine** | **Deterministic Financial Engine** | Built-in offline fallback rules for 24/7 reliability |
+| **AI Advisory (Tier 1)** | **Google Gemini 2.0 Flash** (`@google/genai`) | High-speed, high-accuracy conversational advisory engine |
+| **AI Advisory (Tier 2)** | **OpenAI GPT-4o-mini** (`openai`) | Secondary cloud LLM advisory integration |
+| **AI Advisory (Tier 3)** | **Google Gemma 4** (via Hugging Face) | Deep open-weights financial conversational advisor |
+| **AI Advisory (Tier 4)** | **FinTwin Deterministic Knowledge Engine** | Built-in offline fallback rules for 24/7 reliability |
+| **Image Generation** | **FLUX.1-dev** (via InferenceClient) | Generative image synthesis engine for financial goals |
 
 ---
 
@@ -102,13 +122,14 @@ Managing personal finances across multiple Indian financial institutions is noto
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Frontend (React 18 + SPA)"]
+    subgraph Client ["Frontend (React 18 SPA)"]
         UI[Glassmorphic Dashboard]
         Router[React Router v6]
         Lang[Language Context / i18n]
         AdvisorUI[AI Financial Advisor UI]
+        ChatbotUI[FinTwin Smart Assistant Widget]
         LoansUI[Loans & EMI Radar]
-        InvestUI[Investments & Wealth Hub]
+        InvestUI[Investments Hub]
         SchemesUI[Govt Schemes Navigator]
         Maps[Leaflet ATM / Branch Radar]
     end
@@ -118,28 +139,32 @@ flowchart TD
     end
 
     subgraph Backend ["Backend (Node.js & Express 5)"]
-        AuthRoute["/api/auth (Register / Login / JWT)"]
+        AuthRoute["/api/auth (Register / Login / JWT / Google OAuth)"]
         ProfileRoute["/api/profile (Profiles & Assets)"]
-        ChatRoute["/api/chat (Gemma 4 Advisory)"]
+        ChatRoute["/api/chat (Multi-Tier Advisory Engine)"]
         ImageRoute["/api/generate-image (FLUX.1)"]
         KnowledgeEngine["Built-in FinTwin Knowledge Engine"]
     end
 
-    subgraph External ["Cloud & External Services"]
+    subgraph External ["Cloud AI & External Services"]
         Firestore[(Firebase Firestore NoSQL)]
+        Gemini[Google Gemini 2.0 Flash]
+        OpenAI[OpenAI GPT-4o-mini]
         HF[Hugging Face Router / Gemma 4]
         OSM[OpenStreetMap Tile Server]
     end
 
     UI --> Router
-    Router --> AdvisorUI & LoansUI & InvestUI & SchemesUI & Maps
-    AdvisorUI & LoansUI & InvestUI --> AxiosClient
+    Router --> AdvisorUI & ChatbotUI & LoansUI & InvestUI & SchemesUI & Maps
+    AdvisorUI & ChatbotUI & LoansUI & InvestUI --> AxiosClient
     AxiosClient --> Backend
     
     AuthRoute --> Firestore
     ProfileRoute --> Firestore
-    ChatRoute -->|Primary LLM| HF
-    ChatRoute -->|Automatic Fallback| KnowledgeEngine
+    ChatRoute -->|Tier 1: Gemini Key| Gemini
+    ChatRoute -->|Tier 2: OpenAI Key| OpenAI
+    ChatRoute -->|Tier 3: HF Token| HF
+    ChatRoute -->|Tier 4: Offline Fallback| KnowledgeEngine
     Maps --> OSM
 ```
 
@@ -148,7 +173,7 @@ flowchart TD
 ## 📂 Project Directory Structure
 
 ```plaintext
-Wealth_AI/
+FINTWIN/
 ├── backend/
 │   ├── config/
 │   │   └── firebase.js          # Firebase Admin SDK & Firestore initialization
@@ -158,16 +183,16 @@ Wealth_AI/
 │   │   ├── Profile.js           # Profile schema definitions
 │   │   └── User.js              # User model definitions
 │   ├── routes/
-│   │   ├── ai.js                # AI conversation & image generation endpoints
+│   │   ├── ai.js                # Multi-tier AI conversation & image generation endpoints
 │   │   ├── auth.js              # User registration, login, and JWT tokens
 │   │   └── profile.js           # Financial profile & asset registry routes
 │   ├── knowledgeEngine.js       # Offline-resilient financial knowledge & rule base
-│   ├── server.js                # Main Express server entrypoint & socket configuration
+│   ├── server.js                # Express server entrypoint & AI routing pipeline
 │   ├── .env                     # Backend environment configuration
 │   └── package.json             # Backend dependencies & npm scripts
 │
 ├── frontend/
-│   ├── public/                  # Public assets, favicon, index.html
+│   ├── public/                  # Public assets, favicon, index.html, manifest.json
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── AIAdvisor.js     # Conversational AI financial advisor component
@@ -178,10 +203,13 @@ Wealth_AI/
 │   │   │   ├── InvestmentsPage.js# Asset allocations & portfolio projection
 │   │   │   ├── LoansPage.js     # Multi-bank loan comparison & dynamic EMI calculator
 │   │   │   ├── SchemesPage.js   # Central & State government schemes directory
-│   │   │   ├── SettingsPage.js  # User preferences, security & language settings
-│   │   │   ├── Signin.js        # Authentication sign-in portal
+│   │   │   ├── SettingsPage.js  # User preferences, API keys & language settings
+│   │   │   ├── Signin.js        # Authentication sign-in & Google OAuth portal
 │   │   │   ├── Signup.js        # New user onboarding & account creation
-│   │   │   └── assets.js        # User asset listing & valuation module
+│   │   │   ├── assets.js        # User asset listing & valuation module
+│   │   │   └── chatbot/
+│   │   │       ├── chatbot.js   # FinTwin Smart Assistant floating widget
+│   │   │       └── chatbot.css  # Floating chatbot styling
 │   │   ├── context/
 │   │   │   └── LanguageContext.js # Dynamic multilingual provider & hooks
 │   │   ├── data/
@@ -207,7 +235,11 @@ Wealth_AI/
 - **Node.js**: v18.x or higher installed ([Download Node.js](https://nodejs.org/))
 - **npm** (v9+) or **yarn**
 - **Firebase Project**: A Firestore database instance ([Firebase Console](https://console.firebase.google.com/))
-- **Hugging Face API Token** *(Optional)*: For LLM cloud inference ([Hugging Face Tokens](https://huggingface.co/settings/tokens)). *FinTwin includes an automatic built-in offline engine if omitted.*
+- **AI Keys (Optional)**:
+  - `GEMINI_API_KEY`: For Google Gemini 2.0 Flash ([Google AI Studio](https://aistudio.google.com/))
+  - `OPENAI_API_KEY`: For OpenAI GPT-4o-mini ([OpenAI Platform](https://platform.openai.com/))
+  - `HF_TOKEN`: For Hugging Face Gemma 4 / FLUX.1 ([Hugging Face Tokens](https://huggingface.co/settings/tokens))
+  *(FinTwin operates seamlessly using its built-in offline Knowledge Engine if cloud keys are omitted)*
 
 ---
 
@@ -232,12 +264,16 @@ Create a `.env` file in `backend/.env`:
 PORT=5000
 SESSION_SECRET=your_super_secret_session_key
 JWT_SECRET=your_jwt_signing_key_here
+
+# AI Model Keys (Optional - offline engine activates automatically if omitted)
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 HF_TOKEN=your_huggingface_access_token_here
 
 # Firebase Configuration (paste the JSON stringified service account)
 FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key":"..."}
 
-# Optional Google OAuth
+# Google OAuth (Optional)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
@@ -275,7 +311,9 @@ npm start
 | `PORT` | Port number for the Express API server | No | `5000` |
 | `JWT_SECRET` | Secret key used to sign and verify JSON Web Tokens | Yes | `default_jwt_secret` |
 | `SESSION_SECRET` | Secret key for express session management | Yes | `mysecretkey` |
-| `HF_TOKEN` | Hugging Face User Access Token for Gemma 4 & FLUX | Optional | *(Employs offline Knowledge Engine)* |
+| `GEMINI_API_KEY` | Google Gemini API key for Gemini 2.0 Flash | Optional | *(Falls back to next tier / Knowledge Engine)* |
+| `OPENAI_API_KEY` | OpenAI API key for GPT-4o-mini | Optional | *(Falls back to next tier / Knowledge Engine)* |
+| `HF_TOKEN` | Hugging Face Access Token for Gemma 4 & FLUX.1 | Optional | *(Falls back to Knowledge Engine)* |
 | `FIREBASE_SERVICE_ACCOUNT` | Raw JSON string of Firebase service credentials | Optional | Reads `firebase-service-account.json` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID for social login | Optional | `placeholder-client-id` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret for social login | Optional | `placeholder-client-secret` |
@@ -305,6 +343,9 @@ npm start
       "monthlyIncome": 85000,
       "monthlyExpenses": 40000,
       "riskAppetite": "Medium"
+    },
+    "attachedFile": {
+      "name": "Salary_Slip_August.pdf"
     }
   }
   ```
@@ -322,19 +363,10 @@ npm start
 
 ## 🛡️ Security & Privacy Architecture
 
-- **Industry-Standard Encryption**: All passwords stored in Firestore are salted and hashed using `bcryptjs`.
+- **Industry-Standard Encryption**: Passwords stored in Firestore are salted and hashed using `bcryptjs`.
 - **Stateless Bearer Tokens**: Authenticated requests require cryptographically validated JWTs with defined expiration windows.
 - **Fail-Safe Fallbacks**: No sensitive financial data is shared with external model endpoints if external API calls fail or are deactivated; computations fall back to the secure, localized in-memory knowledge engine.
 - **Zero Raw Account Exposure**: FinTwin operates on sanitized profile inputs and user-consented records, adhering to privacy-by-design principles.
-
----
-
-## 🗺️ Roadmap & Upcoming Milestones
-
-- [ ] **Account Aggregator (AA) Integration**: Direct integration with RBI-approved Account Aggregators (Setu, Anumati) for automated, consent-driven bank statement sync.
-- [ ] **Automated PDF & CamScanner OCR**: Instant statement parsing for bank account e-statements and mutual fund CAS files.
-- [ ] **Credit Bureau Direct Sync**: Real-time CIBIL / Experian score pulls with automated credit report health checks.
-- [ ] **Voice-Enabled Assistant**: Speech-to-text advisory in Indian regional dialects.
 
 ---
 
@@ -357,5 +389,5 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the FinTwin Team for modern retail banking & financial empowerment.</sub>
+  <sub>Built with ❤️ for modern retail banking & financial empowerment.</sub>
 </div>

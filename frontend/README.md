@@ -1,70 +1,85 @@
-# Getting Started with Create React App
+# 💎 FinTwin — Frontend Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Next-generation web interface for **FinTwin**, an AI-powered multi-bank personal finance, loan eligibility, document analysis, and wealth management ecosystem for retail Indian banking users.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 🚀 Key Modules & Components
 
-### `npm start`
+- **Multi-Bank Dashboard (`Homepage.js`)**: Real-time aggregated balances, account distribution, and dynamic expense tracking.
+- **AI Financial Advisor (`AIAdvisor.js`)**: Interactive advisory workspace supporting document uploads, custom LLM selection (Google Gemini 2.0 Flash, OpenAI GPT-4o-mini, Hugging Face Gemma 4), and quick prompts.
+- **FinTwin Smart Assistant (`chatbot/chatbot.js`)**: Floating conversational assistant widget offering rapid bank rate queries, verified portal links, and offline financial heuristics.
+- **Loans & Dynamic EMI Radar (`LoansPage.js`, `LoansAndInvestments.js`)**: Comparative loan interest rates with interactive principal/interest visual charts and debt-to-income (DTI) checks.
+- **Government Welfare Navigator (`SchemesPage.js`)**: Central and state welfare scheme search, personalized eligibility filters, and application guidance.
+- **Milestone & Goal Planner (`GoalsPage.js`)**: Inflation-adjusted SIP calculators for retirement, home down payments, and emergency funds.
+- **Encrypted Document Vault (`DocumentsPage.js`)**: Categorized storage and verification for salary slips, Form 16, bank statements, and KYC proofs.
+- **Settings & AI Configuration (`SettingsPage.js`)**: Custom API key management (Gemini, OpenAI), risk tolerance updates, and language switcher.
+- **Multilingual Support (`LanguageContext.js`)**: Dynamic localized translation across English, Hindi (हिंदी), Tamil (தமிழ்), Telugu (తెలుగు), and Kannada (ಕನ್ನಡ).
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🛠️ Getting Started
 
-### `npm test`
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 2. Start the Development Server
+```bash
+npm start
+```
+Runs the application in development mode at [http://localhost:3000](http://localhost:3000).
 
-### `npm run build`
+### 3. Run Production Build
+```bash
+npm run build
+```
+Builds the app for production to the `build` folder with optimized bundles and minification.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 4. Run Tests
+```bash
+npm test
+```
+Launches the interactive test runner.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 📁 Frontend Directory Layout
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```plaintext
+frontend/
+├── public/
+│   ├── favicon.ico
+│   ├── index.html               # HTML5 entry with FinTwin metadata
+│   └── manifest.json            # PWA manifest
+├── src/
+│   ├── components/
+│   │   ├── AIAdvisor.js         # Full-page conversational financial advisor
+│   │   ├── AIAdvisor.css        # Advisor styling & prompt pills
+│   │   ├── BankDetails.js       # Detailed bank profiles & rates
+│   │   ├── DocumentsPage.js     # Document vault
+│   │   ├── GoalsPage.js         # Goal planner & milestones
+│   │   ├── Homepage.js          # Core multi-bank dashboard
+│   │   ├── InvestmentsPage.js   # Portfolio & asset allocation
+│   │   ├── LoansPage.js         # Multi-bank loans & EMI calculator
+│   │   ├── SchemesPage.js       # Government schemes navigator
+│   │   ├── SettingsPage.js      # User preferences & API key controls
+│   │   ├── Signin.js            # Auth signin & Google OAuth
+│   │   ├── Signup.js            # User onboarding & registration
+│   │   ├── auth.css             # Authentication styling
+│   │   └── chatbot/
+│   │       ├── chatbot.js       # FinTwin Smart Assistant widget
+│   │       └── chatbot.css      # Smart Assistant styling
+│   ├── context/
+│   │   └── LanguageContext.js   # Multilingual i18n context provider
+│   ├── data/
+│   │   └── banksData.js         # Exhaustive banking catalog & rates
+│   ├── utils/
+│   │   ├── apiConfig.js         # API client & local/cloud fallback routing
+│   │   ├── financialKnowledgeEngine.js # Client-side advisory heuristics
+│   │   └── translations.js      # Multilingual dictionaries
+│   ├── App.js                   # Main routes definition
+│   └── index.js                 # React DOM mount point
+└── package.json
+```

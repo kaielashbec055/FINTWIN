@@ -210,3 +210,129 @@ form {
     box-shadow: 6px 6px 0px var(--text-dark);
   }
 }
+
+/* ==========================================================================
+   IN-APP TOAST NOTIFICATIONS (NO BROWSER ALERTS)
+   ========================================================================== */
+.auth-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.auth-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 320px;
+  max-width: 440px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  box-shadow: 6px 6px 0px #000000;
+  color: #000000;
+  animation: authToastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.25s ease;
+}
+
+.auth-toast.success {
+  border-left: 6px solid #10b981;
+  box-shadow: 6px 6px 0px #10b981;
+}
+
+.auth-toast.error {
+  border-left: 6px solid #ef4444;
+  box-shadow: 6px 6px 0px #ef4444;
+}
+
+.auth-toast.info {
+  border-left: 6px solid #7c3aed;
+  box-shadow: 6px 6px 0px #7c3aed;
+}
+
+.auth-toast-icon {
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auth-toast.success .auth-toast-icon {
+  color: #10b981;
+}
+
+.auth-toast.error .auth-toast-icon {
+  color: #ef4444;
+}
+
+.auth-toast.info .auth-toast-icon {
+  color: #7c3aed;
+}
+
+.auth-toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-toast-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+  letter-spacing: -0.3px;
+  color: #000000;
+}
+
+.auth-toast-msg {
+  font-weight: 500;
+  font-size: 0.88rem;
+  color: #333333;
+  line-height: 1.35;
+}
+
+.auth-toast-close {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #888888;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.auth-toast-close:hover {
+  color: #000000;
+}
+
+@keyframes authToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-toast-container {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+  }
+  .auth-toast {
+    min-width: 0;
+    width: 100%;
+  }
+}

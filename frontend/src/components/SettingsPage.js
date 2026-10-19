@@ -47,6 +47,14 @@ const SettingsPage = () => {
     confirmPassword: ''
   });
 
+  // AI Advisor API Keys
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    return localStorage.getItem('fintwin_gemini_api_key') || '';
+  });
+  const [openaiApiKey, setOpenaiApiKey] = useState(() => {
+    return localStorage.getItem('fintwin_openai_api_key') || '';
+  });
+
   useEffect(() => {
     if (theme === 'dark') {
       document.body.classList.add('dark-mode');
@@ -161,6 +169,14 @@ const SettingsPage = () => {
           >
             <span>🔒</span>
             <span>{t('settings_tab_security', 'Security & Access')}</span>
+          </button>
+
+          <button
+            className={`settings-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai')}
+          >
+            <span>🤖</span>
+            <span>AI Advisor API</span>
           </button>
         </div>
 
@@ -296,12 +312,6 @@ const SettingsPage = () => {
                   <span style={{ fontSize: '12px', color: '#64748b' }}>Deep slate for night usage</span>
                 </div>
               </div>
-
-              <div style={{ marginTop: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px' }}>
-                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                  <strong>Accent Color:</strong> Deep Maroon (`#800020`) & FinTwin Teal are calibrated for high accessibility compliance across all displays.
-                </p>
-              </div>
             </div>
           )}
 
@@ -329,13 +339,6 @@ const SettingsPage = () => {
                     )}
                   </div>
                 ))}
-              </div>
-
-              <div style={{ marginTop: '28px', padding: '18px', background: '#f8fafc', borderRadius: '10px' }}>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', color: '#1e293b' }}>Live Preview ({language.toUpperCase()}):</h4>
-                <p style={{ margin: 0, fontSize: '14px', color: '#800020', fontWeight: 600 }}>
-                  "{t('dash_welcome_back')}, {profile.fullName}! {t('dash_total_balance')} - {t('dash_recent_transactions')}"
-                </p>
               </div>
             </div>
           )}
@@ -469,6 +472,68 @@ const SettingsPage = () => {
                   {t('settings_logout', 'Sign Out of FinTwin')}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* TAB 6: AI Advisor API Configuration */}
+          {activeTab === 'ai' && (
+            <div>
+              <h2 className="settings-section-title">AI Advisor Model & API Key Configuration</h2>
+              <p className="settings-section-sub">
+                Connect your FinTwin AI Advisor to Google Gemini or OpenAI. Even without any API key, FinTwin seamlessly runs on its built-in expert Financial Knowledge Engine.
+              </p>
+
+              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '22px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 600, fontSize: '14px' }}>
+                  <span>✓</span>
+                  <span>Active Engine: {geminiApiKey ? 'Google Gemini AI (Cloud LLM)' : (openaiApiKey ? 'OpenAI GPT (Cloud LLM)' : 'FinTwin Built-in Financial Intelligence (Offline Ready)')}</span>
+                </div>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                localStorage.setItem('fintwin_gemini_api_key', geminiApiKey.trim());
+                localStorage.setItem('fintwin_openai_api_key', openaiApiKey.trim());
+                setSaveSuccessMessage('AI Advisor API keys updated successfully!');
+                setTimeout(() => setSaveSuccessMessage(''), 3000);
+              }} className="settings-form">
+                <div className="settings-form-group">
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Google Gemini API Key (Recommended - Free)</span>
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ color: '#2563eb', fontSize: '12px', fontWeight: 600 }}
+                    >
+                      Get Free Key at Google AI Studio ↗
+                    </a>
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Paste AIzaSy... API key here"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                  />
+                  <span style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    Google AI Studio offers free Gemini API keys with no credit card required.
+                  </span>
+                </div>
+
+                <div className="settings-form-group" style={{ marginTop: '16px' }}>
+                  <label>OpenAI API Key (Optional)</label>
+                  <input
+                    type="password"
+                    placeholder="sk-..."
+                    value={openaiApiKey}
+                    onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  />
+                </div>
+
+                <button type="submit" className="settings-btn-save" style={{ marginTop: '10px' }}>
+                  {t('save', 'Save API Configuration')}
+                </button>
+              </form>
             </div>
           )}
         </div>

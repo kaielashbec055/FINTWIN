@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "FinTwin",
+  "name": "FinTwin - Personal Finance & Loans Ecosystem",
   "icons": [
     {
       "src": "favicon.ico",
