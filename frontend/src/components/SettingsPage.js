@@ -47,7 +47,21 @@ const SettingsPage = () => {
     confirmPassword: ''
   });
 
-  // AI Advisor API Keys
+  // AI Advisor Financial Preferences
+  const [aiPreferences, setAiPreferences] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fintwin_ai_preferences');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+      advisoryStyle: 'balanced', // 'balanced' | 'conservative' | 'aggressive'
+      taxRegime: 'new_regime',    // 'new_regime' | 'old_regime'
+      primaryGoal: 'wealth_building' // 'debt_free' | 'emergency_fund' | 'wealth_building' | 'retirement'
+    };
+  });
+
+  // Optional Developer Key Overrides (Only in collapsed dev section)
+  const [showDevOverrides, setShowDevOverrides] = useState(false);
   const [geminiApiKey, setGeminiApiKey] = useState(() => {
     return localStorage.getItem('fintwin_gemini_api_key') || '';
   });
@@ -176,7 +190,7 @@ const SettingsPage = () => {
             onClick={() => setActiveTab('ai')}
           >
             <span>🤖</span>
-            <span>AI Advisor API</span>
+            <span>{t('settings_tab_ai', 'AI Preferences')}</span>
           </button>
         </div>
 
@@ -475,64 +489,165 @@ const SettingsPage = () => {
             </div>
           )}
 
-          {/* TAB 6: AI Advisor API Configuration */}
+          {/* TAB 6: AI Financial Advisor Preferences */}
           {activeTab === 'ai' && (
             <div>
-              <h2 className="settings-section-title">AI Advisor Model & API Key Configuration</h2>
+              <h2 className="settings-section-title">AI Financial Advisor Preferences</h2>
               <p className="settings-section-sub">
-                Connect your FinTwin AI Advisor to Google Gemini or OpenAI. Even without any API key, FinTwin seamlessly runs on its built-in expert Financial Knowledge Engine.
+                Personalize how FinTwin's AI analyzes your bank accounts, calculates loan prepayments, and tailors tax-saving strategies.
               </p>
 
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '22px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 600, fontSize: '14px' }}>
-                  <span>✓</span>
-                  <span>Active Engine: {geminiApiKey ? 'Google Gemini AI (Cloud LLM)' : (openaiApiKey ? 'OpenAI GPT (Cloud LLM)' : 'FinTwin Built-in Financial Intelligence (Offline Ready)')}</span>
+              {/* Status Banner */}
+              <div className="settings-ai-status-card">
+                <div className="settings-ai-status-header">
+                  <div className="settings-ai-status-dot"></div>
+                  <div>
+                    <strong>FinTwin Core Intelligence: Active & Server-Protected</strong>
+                    <p>
+                      All recommendations run through server-managed AI and our offline-resilient financial knowledge engine. You do not need to provide any API keys or external credentials.
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <form onSubmit={(e) => {
                 e.preventDefault();
-                localStorage.setItem('fintwin_gemini_api_key', geminiApiKey.trim());
-                localStorage.setItem('fintwin_openai_api_key', openaiApiKey.trim());
-                setSaveSuccessMessage('AI Advisor API keys updated successfully!');
+                localStorage.setItem('fintwin_ai_preferences', JSON.stringify(aiPreferences));
+                if (geminiApiKey !== undefined) localStorage.setItem('fintwin_gemini_api_key', geminiApiKey.trim());
+                if (openaiApiKey !== undefined) localStorage.setItem('fintwin_openai_api_key', openaiApiKey.trim());
+                setSaveSuccessMessage('AI Advisor preferences saved successfully!');
                 setTimeout(() => setSaveSuccessMessage(''), 3000);
               }} className="settings-form">
-                <div className="settings-form-group">
-                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Google Gemini API Key (Recommended - Free)</span>
-                    <a 
-                      href="https://aistudio.google.com/app/apikey" 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      style={{ color: '#2563eb', fontSize: '12px', fontWeight: 600 }}
+                
+                {/* 1. Advisory Philosophy & Tone */}
+                <div className="settings-pref-section">
+                  <label className="settings-pref-label">Advisory Philosophy & Risk Tone</label>
+                  <p className="settings-pref-desc">Select how FinTwin should balance debt repayment versus investment growth.</p>
+                  
+                  <div className="settings-pref-grid">
+                    <div 
+                      className={`settings-pref-card ${aiPreferences.advisoryStyle === 'balanced' ? 'active' : ''}`}
+                      onClick={() => setAiPreferences(prev => ({ ...prev, advisoryStyle: 'balanced' }))}
                     >
-                      Get Free Key at Google AI Studio ↗
-                    </a>
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Paste AIzaSy... API key here"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                  />
-                  <span style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'block' }}>
-                    Google AI Studio offers free Gemini API keys with no credit card required.
-                  </span>
+                      <div className="pref-icon">⚖️</div>
+                      <div className="pref-title">Balanced & Prudent (Recommended)</div>
+                      <div className="pref-detail">Balances safe loan prepayments, 6-month liquid emergency funds, and disciplined index mutual fund SIPs.</div>
+                    </div>
+
+                    <div 
+                      className={`settings-pref-card ${aiPreferences.advisoryStyle === 'conservative' ? 'active' : ''}`}
+                      onClick={() => setAiPreferences(prev => ({ ...prev, advisoryStyle: 'conservative' }))}
+                    >
+                      <div className="pref-icon">🛡️</div>
+                      <div className="pref-title">Capital Preservation</div>
+                      <div className="pref-detail">Prioritizes debt elimination, high-safety sovereign instruments (PPF, Fixed Deposits, SGB), and minimal risk exposure.</div>
+                    </div>
+
+                    <div 
+                      className={`settings-pref-card ${aiPreferences.advisoryStyle === 'aggressive' ? 'active' : ''}`}
+                      onClick={() => setAiPreferences(prev => ({ ...prev, advisoryStyle: 'aggressive' }))}
+                    >
+                      <div className="pref-icon">🚀</div>
+                      <div className="pref-title">Wealth Maximizer</div>
+                      <div className="pref-detail">Focuses on aggressive compound interest, maximum equity SIP allocations (Nifty 50, Flexi-Cap), and long-term targets.</div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="settings-form-group" style={{ marginTop: '16px' }}>
-                  <label>OpenAI API Key (Optional)</label>
-                  <input
-                    type="password"
-                    placeholder="sk-..."
-                    value={openaiApiKey}
-                    onChange={(e) => setOpenaiApiKey(e.target.value)}
-                  />
+                {/* 2. Tax Planning Framework */}
+                <div className="settings-pref-section">
+                  <label className="settings-pref-label">Tax Planning Framework</label>
+                  <p className="settings-pref-desc">Choose which income tax regime FinTwin should optimize your deductions and salary breakdowns for.</p>
+
+                  <div className="settings-pref-grid two-col">
+                    <div 
+                      className={`settings-pref-card ${aiPreferences.taxRegime === 'new_regime' ? 'active' : ''}`}
+                      onClick={() => setAiPreferences(prev => ({ ...prev, taxRegime: 'new_regime' }))}
+                    >
+                      <div className="pref-icon">📋</div>
+                      <div className="pref-title">New Tax Regime (Default, FY 2024-26)</div>
+                      <div className="pref-detail">Simplified lower tax slabs, standard deduction of ₹75,000, and zero tax rebate on taxable income up to ₹7.75 Lakhs under Section 87A.</div>
+                    </div>
+
+                    <div 
+                      className={`settings-pref-card ${aiPreferences.taxRegime === 'old_regime' ? 'active' : ''}`}
+                      onClick={() => setAiPreferences(prev => ({ ...prev, taxRegime: 'old_regime' }))}
+                    >
+                      <div className="pref-icon">📑</div>
+                      <div className="pref-title">Old Tax Regime</div>
+                      <div className="pref-detail">Maximized deductions for Section 80C (₹1.5L PPF/ELSS), Section 24b Home Loan Interest (₹2L), and 80D Health Insurance.</div>
+                    </div>
+                  </div>
                 </div>
 
-                <button type="submit" className="settings-btn-save" style={{ marginTop: '10px' }}>
-                  {t('save', 'Save API Configuration')}
+                {/* 3. Primary Financial Priority */}
+                <div className="settings-pref-section">
+                  <label className="settings-pref-label">Primary Financial Priority</label>
+                  <p className="settings-pref-desc">FinTwin gives highest advisory prominence to your chosen milestone in all chats and dashboards.</p>
+
+                  <div className="settings-goals-pills">
+                    {[
+                      { id: 'wealth_building', label: '📈 Long-Term Wealth & SIP Compounding' },
+                      { id: 'debt_free', label: '💳 Rapid Debt Clearance & Prepayment' },
+                      { id: 'emergency_fund', label: '🛡️ 6-Month Emergency Buffer' },
+                      { id: 'retirement', label: '🏖️ Retirement & Sovereign Pension (NPS/APY)' }
+                    ].map(goal => (
+                      <button
+                        type="button"
+                        key={goal.id}
+                        className={`settings-goal-pill ${aiPreferences.primaryGoal === goal.id ? 'active' : ''}`}
+                        onClick={() => setAiPreferences(prev => ({ ...prev, primaryGoal: goal.id }))}
+                      >
+                        {goal.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="settings-btn-save">
+                  {t('save', 'Save Preferences')}
                 </button>
+
+                {/* Collapsible Advanced Developer Section */}
+                <div className="settings-dev-accordion">
+                  <button 
+                    type="button" 
+                    className="settings-dev-toggle"
+                    onClick={() => setShowDevOverrides(!showDevOverrides)}
+                  >
+                    <span>🛠️ Advanced Developer Options (Optional API Key Overrides)</span>
+                    <span>{showDevOverrides ? '▲ Hide' : '▼ Expand'}</span>
+                  </button>
+
+                  {showDevOverrides && (
+                    <div className="settings-dev-content">
+                      <p className="settings-dev-note">
+                        <strong>Developer Notice:</strong> FinTwin's server manages AI keys automatically. Entering custom keys below is only needed for developers testing external LLM endpoints directly.
+                      </p>
+
+                      <div className="settings-form-group">
+                        <label>Custom Google Gemini API Key (Optional)</label>
+                        <input
+                          type="password"
+                          placeholder="AIzaSy... (leave blank to use server default)"
+                          value={geminiApiKey}
+                          onChange={(e) => setGeminiApiKey(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="settings-form-group" style={{ marginTop: '12px' }}>
+                        <label>Custom OpenAI API Key (Optional)</label>
+                        <input
+                          type="password"
+                          placeholder="sk-... (leave blank to use server default)"
+                          value={openaiApiKey}
+                          onChange={(e) => setOpenaiApiKey(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </form>
             </div>
           )}

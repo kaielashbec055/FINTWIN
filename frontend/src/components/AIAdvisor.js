@@ -240,6 +240,21 @@ export default function AIAdvisor({ profile }) {
         }
       }
 
+      const storedAiPrefs = (() => {
+        try {
+          return JSON.parse(localStorage.getItem("fintwin_ai_preferences") || "{}");
+        } catch (e) {
+          return {};
+        }
+      })();
+
+      const activeProfile = {
+        ...profile,
+        advisoryStyle: storedAiPrefs.advisoryStyle || "balanced",
+        taxRegime: storedAiPrefs.taxRegime || "new_regime",
+        primaryGoal: storedAiPrefs.primaryGoal || "wealth_building"
+      };
+
       const chatPayload = {
         message: apiMessage,
         attachedFile: fileToSend ? {
@@ -247,7 +262,7 @@ export default function AIAdvisor({ profile }) {
           size: fileToSend.size,
           type: fileToSend.type
         } : null,
-        userProfile: profile,
+        userProfile: activeProfile,
         selectedBank: activeBank,
         bankCategory: bankCategory,
         geminiApiKey: localStorage.getItem("fintwin_gemini_api_key") || "",
@@ -288,7 +303,7 @@ export default function AIAdvisor({ profile }) {
 
       // If backend was unreachable, apply FinTwin smart offline guidance
       if (!replyText) {
-        replyText = generateFinTwinAdvisory(apiMessage, activeBank, profile, fileToSend);
+        replyText = generateFinTwinAdvisory(apiMessage, activeBank, activeProfile, fileToSend);
       }
 
       const aiMsg = {
