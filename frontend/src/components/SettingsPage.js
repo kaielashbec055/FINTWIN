@@ -1,36 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './SettingsPage.css';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
 const SettingsPage = () => {
   const { language, setLanguage, t, supportedLanguages } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('account');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
 
-  // Account State
+  // Account State - load from real authenticated user data
   const [profile, setProfile] = useState(() => {
     try {
       const stored = localStorage.getItem('user_profile');
       if (stored) return JSON.parse(stored);
     } catch (e) {}
+
+    const userEmail = (localStorage.getItem("userEmail") || "").toLowerCase().trim();
+    const userName = localStorage.getItem("userName") || localStorage.getItem(`${userEmail}_name`) || "";
+    const userPhone = localStorage.getItem(`${userEmail}_phone`) || "";
+    const userOccupation = localStorage.getItem(`${userEmail}_occupation`) || "";
+    const userIncome = localStorage.getItem(`${userEmail}_totalIncome`) || "";
+    const userCity = localStorage.getItem(`${userEmail}_city`) || "";
+    const primaryBank = localStorage.getItem("fintwin_primary_bank") || "";
+
     return {
-      fullName: 'Rahul Sharma',
-      email: 'rahul.sharma@example.com',
-      phone: '+91 98765 43210',
-      occupation: 'Software Engineer',
-      monthlyIncome: '120000',
-      primaryBank: 'State Bank of India',
-      city: 'Bengaluru, Karnataka'
+      fullName: userName,
+      email: userEmail,
+      phone: userPhone,
+      occupation: userOccupation,
+      monthlyIncome: userIncome,
+      primaryBank: primaryBank,
+      city: userCity
     };
   });
 
-  // Appearance State
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('fintwin_theme') || 'light';
+  // Linked banks state - only shows primary institution once user links a bank
+  const [linkedBanks, setLinkedBanks] = useState(() => {
+    try {
+      const saved = localStorage.getItem("fintwin_linked_banks");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
   });
+  const [showLinkBankModal, setShowLinkBankModal] = useState(false);
+  const [newBankData, setNewBankData] = useState({
+    bankName: "State Bank of India",
+    accountNumber: "",
+    accountType: "Savings"
+  });
+
+  const handleLinkNewBank = (e) => {
+    e.preventDefault();
+    if (!newBankData.bankName) return;
+    const accountMask = newBankData.accountNumber
+      ? `•••• ${newBankData.accountNumber.slice(-4)}`
+      : "Active Account";
+
+    const newBank = {
+      name: newBankData.bankName,
+      accountMask,
+      accountType: newBankData.accountType,
+      linkedAt: new Date().toISOString()
+    };
+
+    const updated = [...linkedBanks, newBank];
+    setLinkedBanks(updated);
+    localStorage.setItem("fintwin_linked_banks", JSON.stringify(updated));
+    localStorage.setItem("fintwin_primary_bank", newBank.name);
+    setProfile(prev => ({ ...prev, primaryBank: newBank.name }));
+    setShowLinkBankModal(false);
+    setSaveSuccessMessage(`${newBank.name} linked successfully as Primary Bank!`);
+    setTimeout(() => setSaveSuccessMessage(''), 3000);
+  };
 
   // Notifications State
   const [notifications, setNotifications] = useState({
@@ -47,15 +92,6 @@ const SettingsPage = () => {
     confirmPassword: ''
   });
 
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-    localStorage.setItem('fintwin_theme', theme);
-  }, [theme]);
-
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfile((prev) => ({
@@ -67,6 +103,11 @@ const SettingsPage = () => {
   const handleSaveProfile = (e) => {
     e.preventDefault();
     localStorage.setItem('user_profile', JSON.stringify(profile));
+    if (profile.primaryBank) {
+      localStorage.setItem('fintwin_primary_bank', profile.primaryBank);
+    } else {
+      localStorage.removeItem('fintwin_primary_bank');
+    }
     setSaveSuccessMessage('Profile information saved successfully!');
     setTimeout(() => setSaveSuccessMessage(''), 3000);
   };
@@ -92,7 +133,8 @@ const SettingsPage = () => {
     if (window.confirm('Are you sure you want to sign out of FinTwin?')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      navigate('/signin');
+      sessionStorage.clear();
+      navigate('/', { replace: true });
     }
   };
 
@@ -242,20 +284,76 @@ const SettingsPage = () => {
 
                 <div className="settings-form-group">
                   <label>Primary Banking Institution</label>
-                  <select
-                    name="primaryBank"
-                    value={profile.primaryBank}
-                    onChange={handleProfileChange}
-                  >
-                    <option value="State Bank of India">State Bank of India (SBI)</option>
-                    <option value="HDFC Bank">HDFC Bank</option>
-                    <option value="ICICI Bank">ICICI Bank</option>
-                    <option value="Bank of Baroda">Bank of Baroda</option>
-                    <option value="Axis Bank">Axis Bank</option>
-                    <option value="Punjab National Bank">Punjab National Bank</option>
-                    <option value="IDBI Bank">IDBI Bank</option>
-                    <option value="Canara Bank">Canara Bank</option>
-                  </select>
+                  {linkedBanks.length === 0 ? (
+                    <div style={{
+                      padding: "16px",
+                      background: "#f8fafc",
+                      border: "1.5px dashed #cbd5e1",
+                      borderRadius: "10px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "14px",
+                      flexWrap: "wrap"
+                    }}>
+                      <div>
+                        <span style={{ fontSize: "14px", fontWeight: "700", color: "#64748b" }}>
+                          No Bank Linked Yet
+                        </span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "12.5px", color: "#94a3b8" }}>
+                          Primary Banking Institution will appear here once you link your bank account with FinTwin.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowLinkBankModal(true)}
+                        style={{
+                          background: "#800020",
+                          color: "#ffffff",
+                          border: "none",
+                          padding: "8px 16px",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                          cursor: "pointer"
+                        }}
+                      >
+                        + Link Bank Account
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <select
+                        name="primaryBank"
+                        value={profile.primaryBank}
+                        onChange={handleProfileChange}
+                        style={{ flex: 1 }}
+                      >
+                        {linkedBanks.map((b, idx) => (
+                          <option key={idx} value={b.name}>
+                            {b.name} ({b.accountMask})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowLinkBankModal(true)}
+                        style={{
+                          background: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          padding: "10px 14px",
+                          borderRadius: "8px",
+                          fontSize: "12.5px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        + Link Another
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button type="submit" className="settings-btn-save">
@@ -279,10 +377,10 @@ const SettingsPage = () => {
                   onClick={() => setTheme('light')}
                 >
                   <span style={{ fontSize: '32px' }}>☀️</span>
-                  <strong style={{ fontSize: '15px', color: '#1e293b' }}>
+                  <strong className="settings-theme-title">
                     {t('settings_light_mode', 'Light Theme')}
                   </strong>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Clean and vibrant aesthetic</span>
+                  <span className="settings-theme-desc">Clean and vibrant aesthetic</span>
                 </div>
 
                 <div
@@ -290,17 +388,11 @@ const SettingsPage = () => {
                   onClick={() => setTheme('dark')}
                 >
                   <span style={{ fontSize: '32px' }}>🌙</span>
-                  <strong style={{ fontSize: '15px', color: '#1e293b' }}>
+                  <strong className="settings-theme-title">
                     {t('settings_dark_mode', 'Dark Theme')}
                   </strong>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Deep slate for night usage</span>
+                  <span className="settings-theme-desc">Deep slate for night usage</span>
                 </div>
-              </div>
-
-              <div style={{ marginTop: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px' }}>
-                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                  <strong>Accent Color:</strong> Deep Maroon (`#800020`) & FinTwin Teal are calibrated for high accessibility compliance across all displays.
-                </p>
               </div>
             </div>
           )}
@@ -329,13 +421,6 @@ const SettingsPage = () => {
                     )}
                   </div>
                 ))}
-              </div>
-
-              <div style={{ marginTop: '28px', padding: '18px', background: '#f8fafc', borderRadius: '10px' }}>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', color: '#1e293b' }}>Live Preview ({language.toUpperCase()}):</h4>
-                <p style={{ margin: 0, fontSize: '14px', color: '#800020', fontWeight: 600 }}>
-                  "{t('dash_welcome_back')}, {profile.fullName}! {t('dash_total_balance')} - {t('dash_recent_transactions')}"
-                </p>
               </div>
             </div>
           )}
@@ -473,6 +558,108 @@ const SettingsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Link Bank Account Modal */}
+      {showLinkBankModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          backgroundColor: "rgba(15, 23, 42, 0.5)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "#ffffff",
+            borderRadius: "16px",
+            width: "90%",
+            maxWidth: "460px",
+            padding: "24px",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.15rem", color: "#0f172a" }}>Link Bank Account</h3>
+              <button
+                type="button"
+                onClick={() => setShowLinkBankModal(false)}
+                style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#64748b" }}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleLinkNewBank}>
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px", color: "#334155" }}>
+                  Select Bank Institution
+                </label>
+                <select
+                  value={newBankData.bankName}
+                  onChange={(e) => setNewBankData({ ...newBankData, bankName: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                  required
+                >
+                  <option value="State Bank of India">State Bank of India (SBI)</option>
+                  <option value="HDFC Bank">HDFC Bank</option>
+                  <option value="ICICI Bank">ICICI Bank</option>
+                  <option value="Axis Bank">Axis Bank</option>
+                  <option value="Punjab National Bank">Punjab National Bank (PNB)</option>
+                  <option value="Bank of Baroda">Bank of Baroda</option>
+                  <option value="Kotak Mahindra Bank">Kotak Mahindra Bank</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px", color: "#334155" }}>
+                  Account Number (Optional / Demo)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 501004928192"
+                  value={newBankData.accountNumber}
+                  onChange={(e) => setNewBankData({ ...newBankData, accountNumber: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px", color: "#334155" }}>
+                  Account Type
+                </label>
+                <select
+                  value={newBankData.accountType}
+                  onChange={(e) => setNewBankData({ ...newBankData, accountType: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                >
+                  <option value="Savings">Savings Account</option>
+                  <option value="Current">Current / Business Account</option>
+                  <option value="Salary">Salary Account</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLinkBankModal(false)}
+                  style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "#800020", color: "#ffffff", fontWeight: "600", cursor: "pointer" }}
+                >
+                  Link Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

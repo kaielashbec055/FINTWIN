@@ -67,13 +67,7 @@ export default function LoansAndInvestments({ profile }) {
   const banksInCategory = BANKS_DATA[bankCategory] || [];
   const currentBank = banksInCategory.find(b => b.id === selectedBankId) || banksInCategory[0] || null;
 
-  // Synchronize active bank context with localStorage for Chatbot / AI Advisor integration
-  useEffect(() => {
-    if (currentBank) {
-      localStorage.setItem("fintwin_selected_bank", currentBank.name);
-      localStorage.setItem("fintwin_selected_bank_category", bankCategory);
-    }
-  }, [currentBank, bankCategory]);
+
 
   // Available loan products for current bank and loan category
   const availableProducts = (currentBank?.loans && currentBank.loans[loanCategory]) || [];

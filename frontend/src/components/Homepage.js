@@ -69,6 +69,123 @@ function Homepage() {
     financialGoal: ""
   });
 
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({
+    name: "",
+    age: "",
+    phone: "",
+    occupation: "",
+    employmentType: "Salaried",
+    city: "",
+    dependents: "",
+    monthlyIncome: "",
+    monthlyExpenses: "",
+    riskAppetite: "Moderate",
+    investmentHorizon: "",
+    financialGoal: ""
+  });
+
+  const handleOpenEditProfile = () => {
+    const rawIncome = String(profileSnapshot.monthlyIncome || "").replace(/[^\d.]/g, "");
+    const rawExpenses = String(profileSnapshot.monthlyExpenses || "").replace(/[^\d.]/g, "");
+    const rawHorizon = String(profileSnapshot.investmentHorizon || "").replace(/[^\d.]/g, "");
+
+    setEditProfileForm({
+      name: userData.name || localStorage.getItem("userName") || "",
+      age: profileSnapshot.age === "Not Specified" ? "" : (profileSnapshot.age || ""),
+      phone: profileSnapshot.phone === "Not Provided" ? "" : (profileSnapshot.phone || ""),
+      occupation: profileSnapshot.occupation === "Not Specified" ? "" : (profileSnapshot.occupation || ""),
+      employmentType: profileSnapshot.employmentType === "Not Specified" ? "Salaried" : (profileSnapshot.employmentType || "Salaried"),
+      city: profileSnapshot.city === "Not Specified" ? "" : (profileSnapshot.city || ""),
+      dependents: profileSnapshot.dependents === "0" ? "" : (profileSnapshot.dependents || ""),
+      monthlyIncome: rawIncome === "0" ? "" : rawIncome,
+      monthlyExpenses: rawExpenses === "0" ? "" : rawExpenses,
+      riskAppetite: profileSnapshot.riskAppetite === "Not Evaluated" ? "Moderate" : (profileSnapshot.riskAppetite || "Moderate"),
+      investmentHorizon: rawHorizon || "",
+      financialGoal: profileSnapshot.financialGoal || ""
+    });
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveEditProfile = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
+    const userEmail = (localStorage.getItem("userEmail") || "user").toLowerCase().trim();
+
+    const cleanIncome = parseFloat(String(editProfileForm.monthlyIncome).replace(/[^\d.]/g, "")) || 0;
+    const cleanExpenses = parseFloat(String(editProfileForm.monthlyExpenses).replace(/[^\d.]/g, "")) || 0;
+    const cleanHorizon = editProfileForm.investmentHorizon ? `${editProfileForm.investmentHorizon} Years` : "Not Set";
+
+    const payload = {
+      name: editProfileForm.name,
+      age: editProfileForm.age,
+      phone: editProfileForm.phone,
+      occupation: editProfileForm.occupation,
+      employmentType: editProfileForm.employmentType,
+      city: editProfileForm.city,
+      dependents: editProfileForm.dependents,
+      monthlyIncome: cleanIncome,
+      monthlyExpenses: cleanExpenses,
+      riskTolerance: editProfileForm.riskAppetite,
+      investmentTimeline: editProfileForm.investmentHorizon,
+      financialGoals: editProfileForm.financialGoal,
+      profileCompleted: true
+    };
+
+    const reqConfig = {
+      headers: {
+        "x-auth-token": token,
+        "Authorization": `Bearer ${token}`
+      }
+    };
+
+    try {
+      try {
+        await axios.put("http://localhost:5000/api/profile", payload, { ...reqConfig, timeout: 2500 });
+      } catch (localErr) {
+        try {
+          await axios.post("http://localhost:5000/api/profile", payload, { ...reqConfig, timeout: 2500 });
+        } catch (postErr) {
+          await axios.put("https://wealth-ai-backend.onrender.com/api/profile", payload, reqConfig);
+        }
+      }
+
+      localStorage.setItem("userName", editProfileForm.name);
+      localStorage.setItem(`${userEmail}_name`, editProfileForm.name);
+      localStorage.setItem(`${userEmail}_age`, editProfileForm.age);
+      localStorage.setItem(`${userEmail}_phone`, editProfileForm.phone);
+      localStorage.setItem(`${userEmail}_occupation`, editProfileForm.occupation);
+      localStorage.setItem(`${userEmail}_employmentType`, editProfileForm.employmentType);
+      localStorage.setItem(`${userEmail}_city`, editProfileForm.city);
+      localStorage.setItem(`${userEmail}_dependents`, editProfileForm.dependents);
+      localStorage.setItem(`${userEmail}_totalIncome`, cleanIncome);
+      localStorage.setItem(`${userEmail}_totalExpenses`, cleanExpenses);
+      localStorage.setItem(`${userEmail}_riskTolerance`, editProfileForm.riskAppetite);
+      localStorage.setItem(`${userEmail}_investmentHorizon`, editProfileForm.investmentHorizon);
+      localStorage.setItem(`${userEmail}_financialGoal`, editProfileForm.financialGoal);
+
+      setUserData(prev => ({ ...prev, name: editProfileForm.name }));
+      setProfileSnapshot({
+        age: editProfileForm.age || "Not Specified",
+        phone: editProfileForm.phone || "Not Provided",
+        occupation: editProfileForm.occupation || "Not Specified",
+        employmentType: editProfileForm.employmentType || "Not Specified",
+        city: editProfileForm.city || "Not Specified",
+        dependents: editProfileForm.dependents || "0",
+        monthlyIncome: cleanIncome > 0 ? `₹${cleanIncome.toLocaleString("en-IN")}` : "₹0",
+        monthlyExpenses: cleanExpenses > 0 ? `₹${cleanExpenses.toLocaleString("en-IN")}` : "₹0",
+        riskAppetite: editProfileForm.riskAppetite,
+        investmentHorizon: cleanHorizon,
+        financialGoal: editProfileForm.financialGoal || ""
+      });
+
+      setIsEditProfileOpen(false);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      alert("Error updating profile. Please try again.");
+    }
+  };
+
 
 
   // FIX 1: Fetch profile values directly from MongoDB via GET API
@@ -255,7 +372,9 @@ function Homepage() {
   };
   const handleLogout = () => {
     localStorage.removeItem("token");
-    navigate("/signin", { replace: true });
+    localStorage.removeItem("user");
+    sessionStorage.clear();
+    navigate("/", { replace: true });
   };
 
 
@@ -379,21 +498,6 @@ function Homepage() {
       <aside className="fixed-sidebar-container">
         <div className="sidebar-brand-area">
           <div className="logo-main">Fin<span>Twin</span></div>
-          <div className="sidebar-lang-box">
-            <span style={{ fontSize: "14px" }}>🌐</span>
-            <select
-              className="sidebar-lang-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              title="Select Regional Language"
-            >
-              {supportedLanguages.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.native} ({l.name})
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
         <nav className="sidebar-navigation-links">
           <div className={`nav-link-item ${activeSection === "dashboard" ? "active" : ""}`} onClick={() => setActiveSection("dashboard")}>
@@ -672,10 +776,7 @@ function Homepage() {
               </div>
               <button
                 className="edit-profile-btn"
-                onClick={() => {
-                  sessionStorage.setItem("justLoggedIn", "true");
-                  navigate("/profile");
-                }}
+                onClick={handleOpenEditProfile}
               >
                 ✏ Edit Profile
               </button>
@@ -745,6 +846,202 @@ function Homepage() {
       </main>
 
       {/* FLOATING ADD TRANSACTION MODAL */}
+      {isEditProfileOpen && (
+        <div className="tx-modal-overlay" onClick={() => setIsEditProfileOpen(false)}>
+          <div className="tx-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px", maxHeight: "90vh", overflowY: "auto" }}>
+            <div className="tx-modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", padding: "16px 20px" }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px 0", color: "#800020", fontSize: "19px" }}>Edit Financial Profile</h3>
+                <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+                  Update your personal parameters to get tailored financial advice and calculations.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditProfileOpen(false)}
+                style={{ background: "none", border: "none", fontSize: "22px", cursor: "pointer", color: "#64748b" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProfile} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Full Name</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.name}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Age</label>
+                  <input
+                    type="number"
+                    value={editProfileForm.age}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, age: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. 28"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Phone Number</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.phone}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>City / Location</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.city}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, city: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. Mumbai, Maharashtra"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Occupation / Profession</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.occupation}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, occupation: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. Software Engineer, Doctor"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Employment Type</label>
+                  <select
+                    value={editProfileForm.employmentType}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, employmentType: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px", background: "#fff" }}
+                  >
+                    <option value="Salaried">Salaried</option>
+                    <option value="Self-Employed">Self-Employed / Freelancer</option>
+                    <option value="Business Owner">Business Owner</option>
+                    <option value="Student">Student</option>
+                    <option value="Retired">Retired</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Monthly In-Hand Income (₹)</label>
+                  <input
+                    type="number"
+                    value={editProfileForm.monthlyIncome}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, monthlyIncome: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. 75000"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Monthly Expenses (₹)</label>
+                  <input
+                    type="number"
+                    value={editProfileForm.monthlyExpenses}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, monthlyExpenses: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. 35000"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Registered Dependents</label>
+                  <input
+                    type="number"
+                    value={editProfileForm.dependents}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, dependents: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. 2"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Risk Appetite</label>
+                  <select
+                    value={editProfileForm.riskAppetite}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, riskAppetite: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px", background: "#fff" }}
+                  >
+                    <option value="Conservative">Conservative (Low Risk)</option>
+                    <option value="Moderate">Moderate (Balanced)</option>
+                    <option value="Aggressive">Aggressive (High Growth)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Investment Horizon (Years)</label>
+                  <input
+                    type="number"
+                    value={editProfileForm.investmentHorizon}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, investmentHorizon: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. 5"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "600", marginBottom: "5px", color: "#334155" }}>Primary Financial Goal</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.financialGoal}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, financialGoal: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13.5px" }}
+                    placeholder="e.g. Home purchase, Retirement"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px", borderTop: "1px solid #f1f5f9", paddingTop: "14px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  style={{
+                    background: "#f1f5f9",
+                    border: "1px solid #cbd5e1",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    color: "#475569"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    background: "#800020",
+                    color: "#ffffff",
+                    border: "none",
+                    padding: "8px 20px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: 700
+                  }}
+                >
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isTransactionOpen && (
         <AddTransactionModal 
           isOpen={isTransactionOpen}

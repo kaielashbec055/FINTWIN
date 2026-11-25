@@ -4,6 +4,7 @@ const auth = require("../middleware/auth.middleware");
 
 // FIXED: Pull both admin utilities and db from your centralized config file
 const { admin, db } = require("../config/firebase");
+const { validateFinancialValues, buildFinancialProfileWithProvenance } = require("../financialValidator");
 
 /* GET USER PROFILE */
 router.get("/", auth, async (req, res) => {
@@ -33,10 +34,14 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ msg: "Profile already exists" });
     }
 
+    const validation = validateFinancialValues(req.body.monthlyIncome, req.body.monthlyExpenses);
+
     const profileData = {
       userId: req.user.id,
       assets: [], // Set default empty asset array wrapper to support UI table components
       ...req.body,
+      isSuspicious: validation.isSuspicious,
+      suspiciousReason: validation.suspiciousReason || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -113,9 +118,12 @@ router.put("/", auth, async (req, res) => {
 
     // Remove immutable fields from payload if present
     const { userId, createdAt, assets, ...updateData } = req.body;
+    const validation = validateFinancialValues(updateData.monthlyIncome, updateData.monthlyExpenses);
 
     await profilesRef.doc(profileId).update({
       ...updateData,
+      isSuspicious: validation.isSuspicious,
+      suspiciousReason: validation.suspiciousReason || null,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 

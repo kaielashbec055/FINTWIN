@@ -7,21 +7,24 @@ import Homepage from "./components/Homepage";
 import LandingPage from "./pages/LandingPage";  
 import 'leaflet-geosearch/dist/geosearch.css';
 import { LanguageProvider } from "./context/LanguageContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   return (
-    <LanguageProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/signin" element={<Signin />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/profile" element={<FinancialProfile />} /> 
-          <Route path="/homepage" element={<Homepage />} />
-          <Route path="/bank/:bankName" element={<BankDetails />} />
-        </Routes>
-      </BrowserRouter>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/signin" element={<Signin />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/profile" element={<FinancialProfile />} /> 
+            <Route path="/homepage" element={<Homepage />} />
+            <Route path="/bank/:bankName" element={<BankDetails />} />
+          </Routes>
+        </BrowserRouter>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 

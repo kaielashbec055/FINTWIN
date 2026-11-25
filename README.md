@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💎 FinTwin (Wealth AI)
+# FinTwin 
 ### *Next-Generation AI-Powered Multi-Bank Personal Finance, Loans & Wealth Management Ecosystem*
 
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)

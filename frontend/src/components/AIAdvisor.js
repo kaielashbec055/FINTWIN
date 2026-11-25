@@ -1,18 +1,18 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  MessageSquare, 
-  Trash2, 
-  Edit2, 
-  Check, 
-  X, 
-  Search, 
-  Sparkles, 
-  ArrowUp, 
-  Paperclip, 
-  Copy, 
-  FileText, 
+import {
+  Plus,
+  MessageSquare,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  Search,
+  Sparkles,
+  ArrowUp,
+  Paperclip,
+  Copy,
+  FileText,
   ArrowRight,
   Landmark,
   ShieldCheck
@@ -20,12 +20,21 @@ import {
 import axios from 'axios';
 import './AIAdvisor.css';
 import { useLanguage } from '../context/LanguageContext';
-import { generateFinTwinAdvisory } from '../utils/financialKnowledgeEngine';
+import {
+  generateFinTwinAdvisory,
+  generateSmartOfflineGuidance,
+  detectIntent,
+  extractFinancialNumbers,
+  getVerifiedProfile,
+  calculateEMI,
+  calculateSIP
+} from '../utils/financialKnowledgeEngine';
+
+// Configurable API request timeout (25 seconds instead of premature 4 seconds)
+const REQUEST_TIMEOUT_MS = 25000;
 
 export default function AIAdvisor({ profile }) {
   const { t } = useLanguage();
-
-  // Load chat sessions from localStorage or initialize with a default session
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem("fintwin_ai_sessions");
@@ -42,7 +51,7 @@ export default function AIAdvisor({ profile }) {
           {
             id: 1,
             sender: "ai",
-            text: "Welcome to FinTwin AI Advisor! I am your personal financial assistant across Indian commercial banks, loans, investment portfolios, and government schemes. How can I help you optimize your capital today?"
+            text: "Welcome to FinTwin! I am your personal financial companion. How Can I help you today?"
           }
         ]
       }
@@ -67,8 +76,16 @@ export default function AIAdvisor({ profile }) {
   const textareaRef = useRef(null);
 
   // Active bank context from Loans & Investments
-  const activeBank = localStorage.getItem("fintwin_selected_bank") || "";
-  const bankCategory = localStorage.getItem("fintwin_selected_bank_category") || "";
+  const [activeBank, setActiveBank] = useState(() => localStorage.getItem("fintwin_primary_bank") || "");
+  const [bankCategory, setBankCategory] = useState(() => localStorage.getItem("fintwin_selected_bank_category") || "");
+
+  const handleClearActiveBank = (e) => {
+    if (e) e.stopPropagation();
+    localStorage.removeItem("fintwin_selected_bank");
+    localStorage.removeItem("fintwin_selected_bank_category");
+    setActiveBank("");
+    setBankCategory("");
+  };
 
   // Active conversation session
   const currentSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
@@ -172,9 +189,12 @@ export default function AIAdvisor({ profile }) {
 
   // Dispatch message to AI Advisor
   const handleSendMessage = async (textToSend) => {
+    if (isLoading) return; // Prevent duplicate requests while loading
+
     const query = (textToSend || inputMessage).trim();
     if (!query && !attachedFile) return;
 
+    const targetSessionId = activeSessionId;
     const userMsgId = Date.now();
     const userMsg = {
       id: userMsgId,
@@ -188,9 +208,12 @@ export default function AIAdvisor({ profile }) {
     const isFirstUserMessage = messages.filter(m => m.sender === "user").length === 0;
     const sessionTitle = isFirstUserMessage ? (query.slice(0, 30) || "Financial Query") : currentSession.title;
 
+    // Snapshot existing messages to preserve conversation context
+    const existingMessages = [...messages];
+
     // Add user message to session
     setSessions(prev => prev.map(s => {
-      if (s.id === activeSessionId) {
+      if (s.id === targetSessionId) {
         return {
           ...s,
           title: sessionTitle,
@@ -208,20 +231,55 @@ export default function AIAdvisor({ profile }) {
 
     try {
       const token = localStorage.getItem("token");
+      const userEmail = (localStorage.getItem("userEmail") || "default_user").toLowerCase().trim();
       let apiMessage = query;
       if (fileToSend) {
-        if (fileToSend.isText && fileToSend.content) {
-          apiMessage = `[Attached Document: ${fileToSend.name}]\nContent:\n${fileToSend.content}\n\nUser Query: ${query || "Please analyze this document."}`;
-        } else {
-          apiMessage = `[Attached Document: ${fileToSend.name} (${fileToSend.size})]\n\nUser Query: ${query || "Please review this financial file."}`;
+        apiMessage = query || "What does this document contain?";
+      }
+
+      // 1. Identify intent & parse financial parameters
+      const parsedNums = extractFinancialNumbers(query);
+      const detectedIntent = detectIntent(query, parsedNums);
+      const verifiedProfile = getVerifiedProfile(profile);
+
+      // 2. Validate deterministic calculations separately
+      let deterministicCalculation = null;
+      if (detectedIntent === "emi_calculation") {
+        if (parsedNums.amount && parsedNums.rate && parsedNums.years) {
+          deterministicCalculation = calculateEMI(parsedNums.amount, parsedNums.rate, parsedNums.years);
+        }
+      } else if (detectedIntent === "sip_calculation") {
+        if (parsedNums.amount && parsedNums.rate && parsedNums.years) {
+          deterministicCalculation = calculateSIP(parsedNums.amount, parsedNums.rate, parsedNums.years);
         }
       }
 
+      // 3. Format previous conversation turns to preserve conversational context
+      const conversationHistory = existingMessages
+        .filter(m => (m.sender === "user" || m.sender === "ai") && m.text)
+        .slice(-10)
+        .map(m => ({
+          role: m.sender === "ai" ? "assistant" : "user",
+          content: m.text
+        }));
+
+      // 4. Construct payload with strict user/session isolation and document data
       const chatPayload = {
         message: apiMessage,
+        userId: userEmail,
+        sessionId: targetSessionId,
+        documentId: fileToSend ? fileToSend.name : null,
+        attachedDocument: fileToSend ? { name: fileToSend.name, content: fileToSend.content || "", size: fileToSend.size } : null,
+        documentContent: fileToSend ? fileToSend.content : null,
+        fileName: fileToSend ? fileToSend.name : null,
+        messages: conversationHistory,
+        conversationHistory: conversationHistory,
         userProfile: profile,
+        verifiedProfile: verifiedProfile,
         selectedBank: activeBank,
-        bankCategory: bankCategory
+        bankCategory: bankCategory,
+        intent: detectedIntent,
+        deterministicCalculation: deterministicCalculation
       };
 
       let replyText = "";
@@ -232,33 +290,27 @@ export default function AIAdvisor({ profile }) {
             "x-auth-token": token || "",
             "Authorization": token ? `Bearer ${token}` : ""
           },
-          timeout: 5000
+          timeout: REQUEST_TIMEOUT_MS
         });
-        if (localRes.data?.reply) {
+
+        if (localRes.data && typeof localRes.data.reply === "string" && localRes.data.reply.trim().length > 0) {
           replyText = localRes.data.reply;
+        } else if (localRes.data?.error) {
+          replyText = `⚠️ **AI Advisor Error:** ${localRes.data.error}`;
+        } else {
+          replyText = "⚠️ **Invalid Response:** The AI Advisor returned an empty response. Please ask your question again.";
         }
       } catch (err) {
-        // Fallback to hosted backend
-        try {
-          const hostedRes = await axios.post("https://wealth-ai-backend.onrender.com/api/chat", chatPayload, {
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token || "",
-              "Authorization": token ? `Bearer ${token}` : ""
-            },
-            timeout: 8000
-          });
-          if (hostedRes.data?.reply) {
-            replyText = hostedRes.data.reply;
-          }
-        } catch (hErr) {
-          console.warn("Both backends offline, utilizing FinTwin local advisor engine");
+        console.error("AI Advisor API request failed:", err);
+        if (err.code === "ECONNABORTED" || err.message?.toLowerCase().includes("timeout")) {
+          replyText = `⚠️ **Request Timed Out:** The AI Advisor took longer than ${REQUEST_TIMEOUT_MS / 1000} seconds to respond. Please check your connection and try again.`;
+        } else if (err.code === "ERR_NETWORK" || !err.response) {
+          replyText = "⚠️ **Connection Error:** Unable to reach the AI Advisor service at http://localhost:5000. Please ensure the backend server is running and try again.";
+        } else if (err.response?.data?.error) {
+          replyText = `⚠️ **Service Error (${err.response.status}):** ${err.response.data.error}`;
+        } else {
+          replyText = `⚠️ **Service Unavailable:** Could not process your request (${err.message || "Unknown error"}). Please try again.`;
         }
-      }
-
-      // If backend was unreachable, apply FinTwin smart offline guidance
-      if (!replyText) {
-        replyText = generateSmartOfflineGuidance(query, activeBank, profile);
       }
 
       const aiMsg = {
@@ -269,7 +321,7 @@ export default function AIAdvisor({ profile }) {
       };
 
       setSessions(prev => prev.map(s => {
-        if (s.id === activeSessionId) {
+        if (s.id === targetSessionId) {
           return {
             ...s,
             updatedAt: new Date().toISOString(),
@@ -284,11 +336,11 @@ export default function AIAdvisor({ profile }) {
       const errorMsg = {
         id: Date.now() + 1,
         sender: "ai",
-        text: "I encountered a telemetry communication error. Please ensure your backend is active on port 5000.",
+        text: `⚠️ **Error:** An unexpected error occurred (${error.message || "Unknown error"}). Please try again.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setSessions(prev => prev.map(s => {
-        if (s.id === activeSessionId) {
+        if (s.id === targetSessionId) {
           return { ...s, messages: [...s.messages, errorMsg] };
         }
         return s;
@@ -314,7 +366,7 @@ export default function AIAdvisor({ profile }) {
   };
 
   // Filtered session list for search
-  const filteredSessions = sessions.filter(s => 
+  const filteredSessions = sessions.filter(s =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -328,9 +380,9 @@ export default function AIAdvisor({ profile }) {
 
         <div className="search-chat-wrapper">
           <Search size={14} className="search-chat-icon" />
-          <input 
-            type="text" 
-            placeholder={t("ai_search_chats", "Search chats...")} 
+          <input
+            type="text"
+            placeholder={t("ai_search_chats", "Search chats...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-chat-input"
@@ -348,17 +400,17 @@ export default function AIAdvisor({ profile }) {
             </div>
           ) : (
             filteredSessions.map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`history-item ${session.id === activeSessionId ? 'active' : ''}`}
                 onClick={() => setActiveSessionId(session.id)}
               >
                 <div className="history-item-left">
                   <MessageSquare size={14} className="history-item-icon" />
                   {editingSessionId === session.id ? (
-                    <input 
-                      type="text" 
-                      value={editingTitle} 
+                    <input
+                      type="text"
+                      value={editingTitle}
                       onChange={(e) => setEditingTitle(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
@@ -399,14 +451,7 @@ export default function AIAdvisor({ profile }) {
           )}
         </div>
 
-        {activeBank && (
-          <div style={{ marginTop: "auto", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Active Bank</span>
-            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#800020", marginTop: "2px" }}>
-              {activeBank}
-            </div>
-          </div>
-        )}
+        {/* Active bank box removed from sidebar per user request */}
       </div>
 
       {/* 2. MAIN CHAT AREA */}
@@ -415,14 +460,31 @@ export default function AIAdvisor({ profile }) {
           <div className="advisor-title-box">
             <div className="advisor-badge-avatar">AI</div>
             <div className="advisor-title-text">
-              <h3>FinTwin AI Advisor</h3>
-              <span>Objective Financial Intelligence across Indian Banking & Wealth</span>
+              <h3>Financial Advisor</h3>
+              <span>Personalized Financial advisor and wealth ecosystem</span>
             </div>
           </div>
 
           {activeBank ? (
             <div className="context-tag-pill">
               <Landmark size={14} /> Active Context: {activeBank}
+              <button
+                type="button"
+                onClick={handleClearActiveBank}
+                title="Switch to Universal Financial Mode"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  marginLeft: "6px",
+                  padding: "0",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  color: "inherit"
+                }}
+              >
+                <X size={12} />
+              </button>
             </div>
           ) : (
             <div className="context-tag-pill" style={{ color: "#059669", background: "#ecfdf5", borderColor: "#a7f3d0" }}>
@@ -444,32 +506,32 @@ export default function AIAdvisor({ profile }) {
               </p>
 
               <div className="empty-suggestions-grid">
-                <div 
-                  className="suggestion-card" 
+                <div
+                  className="suggestion-card"
                   onClick={() => handleSendMessage("Compare SBI vs HDFC Home Loans with interest rates")}
                 >
                   <span>Compare SBI vs HDFC Home Loans</span>
                   <ArrowRight size={14} className="suggestion-card-arrow" />
                 </div>
 
-                <div 
-                  className="suggestion-card" 
+                <div
+                  className="suggestion-card"
                   onClick={() => handleSendMessage("How much emergency fund do I need based on my monthly expenses?")}
                 >
                   <span>How much emergency fund do I need?</span>
                   <ArrowRight size={14} className="suggestion-card-arrow" />
                 </div>
 
-                <div 
-                  className="suggestion-card" 
+                <div
+                  className="suggestion-card"
                   onClick={() => handleSendMessage("Which government schemes offer the highest risk-free returns for common citizens?")}
                 >
                   <span>Top government wealth schemes</span>
                   <ArrowRight size={14} className="suggestion-card-arrow" />
                 </div>
 
-                <div 
-                  className="suggestion-card" 
+                <div
+                  className="suggestion-card"
                   onClick={() => handleSendMessage("Calculate EMI for ₹25 Lakhs at 8.5% interest for 20 years")}
                 >
                   <span>Calculate EMI for ₹25 Lakhs at 8.5% for 20y</span>
@@ -503,12 +565,9 @@ export default function AIAdvisor({ profile }) {
                         return parts.map((part, pIdx) => {
                           if (part.startsWith("**") && part.endsWith("**")) {
                             return (
-                              <strong 
-                                key={pIdx} 
-                                style={{ 
-                                  fontWeight: 700, 
-                                  color: msg.sender === "user" ? "#ffffff" : "#0f172a" 
-                                }}
+                              <strong
+                                key={pIdx}
+                                className="turn-strong"
                               >
                                 {part.slice(2, -2)}
                               </strong>
@@ -520,14 +579,9 @@ export default function AIAdvisor({ profile }) {
 
                       if (trimmed.startsWith("### ")) {
                         return (
-                          <h4 
-                            key={idx} 
-                            style={{ 
-                              margin: "12px 0 6px 0", 
-                              fontSize: "0.98rem", 
-                              fontWeight: 700, 
-                              color: msg.sender === "user" ? "#93c5fd" : "#800020" 
-                            }}
+                          <h4
+                            key={idx}
+                            className="turn-h4"
                           >
                             {trimmed.replace("### ", "")}
                           </h4>
@@ -536,33 +590,34 @@ export default function AIAdvisor({ profile }) {
 
                       if (trimmed.startsWith("## ")) {
                         return (
-                          <h3 
-                            key={idx} 
-                            style={{ 
-                              margin: "14px 0 6px 0", 
-                              fontSize: "1.08rem", 
-                              fontWeight: 800, 
-                              color: msg.sender === "user" ? "#bfdbfe" : "#1e293b" 
-                            }}
+                          <h3
+                            key={idx}
+                            className="turn-h3"
                           >
                             {trimmed.replace("## ", "")}
                           </h3>
                         );
                       }
 
+                      if (trimmed.startsWith("# ")) {
+                        return (
+                          <h3
+                            key={idx}
+                            className="turn-h3"
+                          >
+                            {trimmed.replace("# ", "")}
+                          </h3>
+                        );
+                      }
+
                       if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
                         return (
-                          <div 
-                            key={idx} 
-                            style={{ 
-                              display: "flex", 
-                              gap: "8px", 
-                              margin: "3px 0", 
-                              paddingLeft: "4px" 
-                            }}
+                          <div
+                            key={idx}
+                            className="turn-bullet-row"
                           >
-                            <span style={{ color: msg.sender === "user" ? "#60a5fa" : "#800020", fontWeight: "bold" }}>•</span>
-                            <span style={{ flex: 1 }}>{renderInline(trimmed.substring(2))}</span>
+                            <span className="turn-bullet">•</span>
+                            <span className="turn-bullet-text">{renderInline(trimmed.substring(2))}</span>
                           </div>
                         );
                       }
@@ -570,31 +625,20 @@ export default function AIAdvisor({ profile }) {
                       const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
                       if (numMatch) {
                         return (
-                          <div 
-                            key={idx} 
-                            style={{ 
-                              display: "flex", 
-                              gap: "8px", 
-                              margin: "4px 0", 
-                              paddingLeft: "4px" 
-                            }}
+                          <div
+                            key={idx}
+                            className="turn-num-row"
                           >
-                            <span 
-                              style={{ 
-                                color: msg.sender === "user" ? "#93c5fd" : "#800020", 
-                                fontWeight: 700, 
-                                minWidth: "18px" 
-                              }}
-                            >
+                            <span className="turn-num">
                               {numMatch[1]}.
                             </span>
-                            <span style={{ flex: 1 }}>{renderInline(numMatch[2])}</span>
+                            <span className="turn-num-text">{renderInline(numMatch[2])}</span>
                           </div>
                         );
                       }
 
                       return (
-                        <p key={idx} style={{ margin: "0 0 6px 0", lineHeight: "1.6" }}>
+                        <p key={idx} className="turn-paragraph">
                           {renderInline(line)}
                         </p>
                       );
@@ -608,7 +652,7 @@ export default function AIAdvisor({ profile }) {
                       </span>
                     )}
                     {msg.sender === "ai" && (
-                      <button 
+                      <button
                         className="bubble-action-btn"
                         onClick={() => handleCopy(msg.id, msg.text)}
                         title="Copy text"
@@ -653,10 +697,10 @@ export default function AIAdvisor({ profile }) {
 
           <div className="chat-input-bar-modern">
             <div className="chat-input-actions-left">
-              <input 
-                type="file" 
-                id="ai-advisor-file-input" 
-                style={{ display: "none" }} 
+              <input
+                type="file"
+                id="ai-advisor-file-input"
+                style={{ display: "none" }}
                 onChange={handleFileChange}
               />
               <label htmlFor="ai-advisor-file-input" className="chat-attach-btn" title="Attach document or statement">
@@ -664,7 +708,7 @@ export default function AIAdvisor({ profile }) {
               </label>
             </div>
 
-            <textarea 
+            <textarea
               ref={textareaRef}
               rows="1"
               value={inputMessage}
@@ -675,8 +719,8 @@ export default function AIAdvisor({ profile }) {
               disabled={isLoading}
             />
 
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => handleSendMessage()}
               disabled={!(inputMessage.trim() || attachedFile) || isLoading}
               className={`chat-send-circle-btn ${(inputMessage.trim() || attachedFile) && !isLoading ? 'active' : ''}`}
@@ -694,7 +738,3 @@ export default function AIAdvisor({ profile }) {
   );
 }
 
-// Smart Financial Advisor Knowledge Engine
-function generateSmartOfflineGuidance(query, activeBank, profile) {
-  return generateFinTwinAdvisory(query, activeBank, profile);
-}

@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 import axios from "axios";
 import { FaGoogle, FaFacebookF } from "react-icons/fa";
+import { ArrowLeft } from "lucide-react";
 import "../components/auth.css";
 
 function Signin() {
@@ -77,6 +78,16 @@ function Signin() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-top-nav">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="btn-back-options"
+            title="Return to landing page"
+          >
+            <ArrowLeft size={15} style={{ marginRight: 6 }} /> Back
+          </button>
+        </div>
         <h2>Welcome Back</h2>
         <form onSubmit={handleSubmit}>
           <input className="auth-input" name="email" type="email" placeholder="Email Address" onChange={handleChange} required />

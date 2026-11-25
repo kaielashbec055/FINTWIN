@@ -2,63 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import './DocumentsPage.css';
 import { useLanguage } from '../context/LanguageContext';
 
-const INITIAL_DOCUMENTS = [
-  {
-    id: 'doc-1',
-    name: 'SBI_Savings_Account_Statement_FY24.pdf',
-    category: 'banking',
-    categoryLabel: 'Bank Statements',
-    size: '1.2 MB',
-    uploadDate: '2024-10-02',
-    type: 'application/pdf'
-  },
-  {
-    id: 'doc-2',
-    name: 'HDFC_Home_Loan_Sanction_Letter.pdf',
-    category: 'loans',
-    categoryLabel: 'Loans & Credit',
-    size: '2.4 MB',
-    uploadDate: '2024-06-15',
-    type: 'application/pdf'
-  },
-  {
-    id: 'doc-3',
-    name: 'Income_Tax_Acknowledgment_AY2024-25.pdf',
-    category: 'taxes',
-    categoryLabel: 'Tax & ITR',
-    size: '480 KB',
-    uploadDate: '2024-07-28',
-    type: 'application/pdf'
-  },
-  {
-    id: 'doc-4',
-    name: 'MaxLife_Term_Insurance_Policy_Bond.pdf',
-    category: 'insurance',
-    categoryLabel: 'Insurance',
-    size: '3.1 MB',
-    uploadDate: '2024-01-10',
-    type: 'application/pdf'
-  },
-  {
-    id: 'doc-5',
-    name: 'Zerodha_Consolidated_PnL_FY23-24.xlsx',
-    category: 'investments',
-    categoryLabel: 'Investments',
-    size: '850 KB',
-    uploadDate: '2024-05-20',
-    type: 'application/vnd.ms-excel'
-  },
-  {
-    id: 'doc-6',
-    name: 'Aadhaar_PAN_Masked_KYC_Verified.pdf',
-    category: 'kyc',
-    categoryLabel: 'Identity & KYC',
-    size: '620 KB',
-    uploadDate: '2023-11-12',
-    type: 'application/pdf'
-  }
-];
-
 const DocumentsPage = () => {
   const { t } = useLanguage();
   const fileInputRef = useRef(null);
@@ -66,9 +9,19 @@ const DocumentsPage = () => {
   const [documents, setDocuments] = useState(() => {
     try {
       const saved = localStorage.getItem('fintwin_documents');
-      return saved ? JSON.parse(saved) : INITIAL_DOCUMENTS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Clear any previous mock demo files (doc-1 through doc-6)
+        const isDemoData = Array.isArray(parsed) && parsed.some(d => d.id === 'doc-1' || d.id === 'doc-2' || d.id === 'doc-6');
+        if (isDemoData) {
+          localStorage.removeItem('fintwin_documents');
+          return [];
+        }
+        return parsed;
+      }
+      return [];
     } catch {
-      return INITIAL_DOCUMENTS;
+      return [];
     }
   });
 
@@ -263,8 +216,10 @@ const DocumentsPage = () => {
           <tbody>
             {filteredDocs.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
-                  No documents found in this category.
+                <td colSpan="5" style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>📂</div>
+                  <strong>Your Document Vault is empty.</strong>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px' }}>Upload your KYC, bank statements, or loan files above to store them securely.</p>
                 </td>
               </tr>
             ) : (

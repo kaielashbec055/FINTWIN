@@ -232,3 +232,76 @@
   background-color: #93c5fd;
   cursor: not-allowed;
 }
+
+/* ============================================================================
+   ASSETS / PROPERTIES DARK MODE STYLES
+   ============================================================================ */
+.dark-mode .properties-page-workspace {
+  color: #f8fafc;
+}
+
+.dark-mode .title-block h1 {
+  color: #f8fafc;
+}
+
+.dark-mode .description-text {
+  color: #94a3b8;
+}
+
+.dark-mode .metric-card-box {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .metric-card-box label {
+  color: #94a3b8;
+}
+
+.dark-mode .value-display-large {
+  color: #f8fafc;
+}
+
+.dark-mode .properties-content-main-panel {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .custom-portfolio-datatable th {
+  background-color: #0f172a;
+  border-bottom-color: #334155;
+  color: #94a3b8;
+}
+
+.dark-mode .custom-portfolio-datatable td {
+  border-bottom-color: #334155;
+  color: #f8fafc;
+}
+
+.dark-mode .empty-state-canvas {
+  color: #94a3b8;
+}
+
+.dark-mode .empty-state-canvas h3 {
+  color: #f8fafc;
+}
+
+.dark-mode .modal-content-card-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+.dark-mode .modal-header-row h3 {
+  color: #f8fafc;
+}
+
+.dark-mode .modal-close-dismiss-cross-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .form-input-field-group input,
+.dark-mode .form-input-field-group select {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+

@@ -1,36 +1,104 @@
 // ============================================================================
 // FINTWIN CORE FINANCIAL INTELLIGENCE & KNOWLEDGE ENGINE (Node.js Backend)
-// Deep, comprehensive expert financial reasoning for retail Indian users
+// Objective, deterministic, and verified financial advisory engine
+// Enforces strict query routing (DESCRIPTIVE, ANALYTICAL, ADVISORY),
+// prevents profile hallucinations, and validates all financial inputs.
 // ============================================================================
 
-function calculateEMI(principal, annualRate, tenureYears) {
+const {
+  validateFinancialValues,
+  calculateSavings,
+  calculateFOIRCapacity,
+  buildFinancialProfileWithProvenance
+} = require("./financialValidator");
+
+const {
+  detectCurrency,
+  detectBankName,
+  parseTabularBankStatement,
+  createTabularChunks,
+  ingestUserDocument,
+  retrieveDocumentContext,
+  classifyQuery,
+  validatePromptPayload,
+  buildPromptForCategory,
+  isolatedDocumentStore
+} = require("./documentEngine");
+
+/**
+ * Deterministic Equated Monthly Installment (EMI) calculation
+ * Formula: EMI = [P x R x (1+R)^N] / [(1+R)^N - 1]
+ */
+function calculateEMI(principal, annualRate, tenureYears, tenureMonthsInput = null) {
   const p = parseFloat(principal);
-  const r = parseFloat(annualRate) / 12 / 100;
-  const n = parseFloat(tenureYears) * 12;
+  const rAnnual = parseFloat(annualRate);
+  const r = rAnnual / 12 / 100;
+  
+  const n = tenureMonthsInput !== null && !isNaN(parseFloat(tenureMonthsInput)) && parseFloat(tenureMonthsInput) > 0
+    ? parseFloat(tenureMonthsInput)
+    : parseFloat(tenureYears) * 12;
 
-  if (p <= 0 || r <= 0 || n <= 0) return null;
+  if (isNaN(p) || p <= 0 || isNaN(r) || r <= 0 || isNaN(n) || n <= 0) {
+    return null;
+  }
 
-  const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  const totalPayment = emi * n;
-  const totalInterest = totalPayment - p;
+  const factor = Math.pow(1 + r, n);
+  const emi = (p * r * factor) / (factor - 1);
+  const roundedEmi = Math.round(emi);
+  const totalPayment = roundedEmi * n;
+  const totalInterest = totalPayment - Math.round(p);
 
   return {
-    emi: Math.round(emi),
+    emi: roundedEmi,
+    principal: Math.round(p),
     totalPayment: Math.round(totalPayment),
     totalInterest: Math.round(totalInterest),
-    principal: Math.round(p),
-    tenureMonths: n
+    tenureMonths: Math.round(n),
+    tenureYears: Number((n / 12).toFixed(1)),
+    annualRate: rAnnual
   };
 }
 
-function calculateSIP(monthlyInvestment, expectedReturnRate, tenureYears) {
+/**
+ * Deterministic Total Interest Payable calculation
+ */
+function calculateTotalInterestPayable(principal, emi, tenureMonths) {
+  const p = parseFloat(principal);
+  const e = parseFloat(emi);
+  const n = parseFloat(tenureMonths);
+  if (isNaN(p) || isNaN(e) || isNaN(n) || p <= 0 || e <= 0 || n <= 0) return null;
+  return Math.round((e * n) - p);
+}
+
+/**
+ * Deterministic Total Repayment Amount calculation
+ */
+function calculateTotalRepayment(emi, tenureMonths) {
+  const e = parseFloat(emi);
+  const n = parseFloat(tenureMonths);
+  if (isNaN(e) || isNaN(n) || e <= 0 || n <= 0) return null;
+  return Math.round(e * n);
+}
+
+/**
+ * Deterministic Systematic Investment Plan (SIP) future value calculation
+ * Formula: FV = P x [ ( (1+i)^n - 1 ) / i ] x (1+i)
+ */
+function calculateSIP(monthlyInvestment, expectedReturnRate, tenureYears, tenureMonthsInput = null) {
   const p = parseFloat(monthlyInvestment);
-  const i = parseFloat(expectedReturnRate) / 12 / 100;
-  const n = parseFloat(tenureYears) * 12;
+  const rateAnnual = parseFloat(expectedReturnRate);
+  const i = rateAnnual / 12 / 100;
 
-  if (p <= 0 || i <= 0 || n <= 0) return null;
+  const n = tenureMonthsInput !== null && !isNaN(parseFloat(tenureMonthsInput)) && parseFloat(tenureMonthsInput) > 0
+    ? parseFloat(tenureMonthsInput)
+    : parseFloat(tenureYears) * 12;
 
-  const fv = p * ((Math.pow(1 + i, n) - 1) / i) * (1 + i);
+  if (isNaN(p) || p <= 0 || isNaN(i) || i <= 0 || isNaN(n) || n <= 0) {
+    return null;
+  }
+
+  const factor = Math.pow(1 + i, n);
+  const fv = p * ((factor - 1) / i) * (1 + i);
   const totalInvested = p * n;
   const estimatedReturns = fv - totalInvested;
 
@@ -38,332 +106,709 @@ function calculateSIP(monthlyInvestment, expectedReturnRate, tenureYears) {
     futureValue: Math.round(fv),
     totalInvested: Math.round(totalInvested),
     estimatedReturns: Math.round(estimatedReturns),
-    tenureYears
+    tenureMonths: Math.round(n),
+    tenureYears: Number((n / 12).toFixed(1)),
+    expectedReturnRate: rateAnnual
   };
 }
 
+/**
+ * Extract numerical financial parameters from raw text queries
+ * Supports Indian numbering conventions (Crores, Lakhs, Thousands, k)
+ */
 function extractFinancialNumbers(text) {
+  if (!text || typeof text !== 'string') {
+    return { amount: null, rate: null, years: null, months: null };
+  }
+
   const str = text.toLowerCase().replace(/,/g, '');
 
   let amount = null;
-  const lakhMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:lakh|lakhs|lac|lacs|l)\b/);
-  const croreMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:crore|crores|cr)\b/);
-  const plainNumMatch = str.match(/(?:₹|rs\.?|inr)?\s*(\d{4,9})\b/);
+  const croreMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:crores?|cr)\b/);
+  const lakhMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:lakhs?|lacs?|lac|l)\b/);
+  const thousandMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:thousand|thousands|k)\b/);
+  const currencyMatch = str.match(/(?:₹|rs\.?|inr|\$|usd)\s*(\d+(?:\.\d+)?)/);
+  const plainNumMatch = str.match(/\b(\d{4,10})\b/);
 
   if (croreMatch) {
     amount = parseFloat(croreMatch[1]) * 10000000;
   } else if (lakhMatch) {
     amount = parseFloat(lakhMatch[1]) * 100000;
+  } else if (thousandMatch) {
+    amount = parseFloat(thousandMatch[1]) * 1000;
+  } else if (currencyMatch) {
+    amount = parseFloat(currencyMatch[1]);
   } else if (plainNumMatch) {
     amount = parseFloat(plainNumMatch[1]);
   }
 
   let rate = null;
-  const rateMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)/);
-  if (rateMatch) {
-    rate = parseFloat(rateMatch[1]);
+  const ratePercentMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:%|percent|p\.a\.|pa\b)/);
+  const rateContextMatch = str.match(/(?:at|rate\s*(?:of)?|interest\s*(?:of)?)\s*(\d+(?:\.\d+)?)\s*(?:%|\b)/);
+  if (ratePercentMatch) {
+    rate = parseFloat(ratePercentMatch[1]);
+  } else if (rateContextMatch) {
+    rate = parseFloat(rateContextMatch[1]);
   }
 
   let years = null;
-  const yearMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/);
+  let months = null;
+  const yearMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?|yr)\b/);
+  const monthMatch = str.match(/(\d+)\s*(?:months?|mos?|mo)\b/);
+
   if (yearMatch) {
     years = parseFloat(yearMatch[1]);
   }
-
-  return { amount, rate, years };
-}
-
-function generateFinTwinAdvisory(query, activeBank = "", profile = {}) {
-  const q = (query || "").trim().toLowerCase();
-  const income = Number(profile?.monthlyIncome) || 50000;
-  const safeEmi = Math.round(income * 0.4);
-  const parsedNums = extractFinancialNumbers(query);
-
-  // 1. EMI CALCULATOR
-  if (q.includes("emi") && (q.includes("calculate") || parsedNums.amount || q.includes("for"))) {
-    const p = parsedNums.amount || 2500000;
-    const r = parsedNums.rate || 8.5;
-    const y = parsedNums.years || 20;
-
-    const result = calculateEMI(p, r, y);
-    if (result) {
-      return `1. EMI Calculation Result: For a loan principal of ₹${result.principal.toLocaleString('en-IN')} at ${r}% p.a. for ${y} years (${result.tenureMonths} months):
-- Monthly EMI: ₹${result.emi.toLocaleString('en-IN')}
-- Total Principal: ₹${result.principal.toLocaleString('en-IN')}
-- Total Interest Payable: ₹${result.totalInterest.toLocaleString('en-IN')}
-- Total Repayment Amount: ₹${result.totalPayment.toLocaleString('en-IN')}
-
-2. Debt-to-Income Feasibility:
-- Your net monthly income is ₹${income.toLocaleString('en-IN')}.
-- Recommended maximum EMI ceiling (40% rule): ₹${safeEmi.toLocaleString('en-IN')}/month.
-- Assessment: ${result.emi <= safeEmi ? `✓ This EMI of ₹${result.emi.toLocaleString('en-IN')} is well within your safe debt capacity.` : `⚠ Warning: This EMI of ₹${result.emi.toLocaleString('en-IN')} exceeds your recommended safe ceiling of ₹${safeEmi.toLocaleString('en-IN')}. Consider extending the tenure to reduce monthly pressure.`}
-
-3. Money-Saving Tip: Making just one extra EMI payment every year or prepaying 5% of principal annually can reduce your loan tenure by up to 4-5 years and save lakhs in interest!`;
+  if (monthMatch) {
+    months = parseInt(monthMatch[1], 10);
+    if (!years) {
+      years = Number((months / 12).toFixed(2));
     }
   }
 
-  // 2. SIP (SYSTEMATIC INVESTMENT PLAN)
+  return { amount, rate, years, months };
+}
+
+/**
+ * Validates and extracts only verified user profile information.
+ * Tracks source provenance and NEVER assumes default income of ₹50,000,
+ * Software Engineer occupation, Medium risk, or SBI bank.
+ */
+function getVerifiedProfile(profile) {
+  if (!profile || typeof profile !== 'object') {
+    return {
+      hasIncome: false,
+      isSuspicious: false,
+      suspiciousReason: null,
+      monthlyIncome: null,
+      monthlyExpenses: null,
+      monthlySavings: null,
+      safeEmiCeiling: null,
+      additionalEmiCapacity: null,
+      foirMessage: "Income information not available.",
+      occupation: "Not provided",
+      riskAppetite: "Not assessed",
+      activeBank: "Not linked",
+      savingsText: "Income information not available.",
+      profileData: null
+    };
+  }
+
+  const profileData = buildFinancialProfileWithProvenance(profile);
+  const hasIncome = profileData.monthlyIncome.value !== null;
+  const isSuspicious = profileData.validation.isSuspicious;
+
+  return {
+    hasIncome,
+    isSuspicious,
+    suspiciousReason: profileData.validation.suspiciousReason,
+    monthlyIncome: profileData.monthlyIncome.value,
+    monthlyExpenses: profileData.monthlyExpenses.value,
+    monthlySavings: profileData.savings.value,
+    savingsText: profileData.savings.displayText,
+    safeEmiCeiling: profileData.foirCapacity.maxTotalEmi,
+    additionalEmiCapacity: profileData.foirCapacity.additionalCapacity,
+    foirMessage: profileData.foirCapacity.message,
+    occupation: profileData.occupation.value,
+    riskAppetite: profileData.riskProfile.value,
+    activeBank: profileData.activeBank.value,
+    profileData
+  };
+}
+
+/**
+ * Intent classification across financial queries
+ */
+function detectIntent(query, params = {}) {
+  const q = (query || "").trim().toLowerCase();
+
+  // Greetings & basic conversational triggers
+  if (/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening))\b/i.test(q) ||
+      q === "who are you" || q === "what can you do" || q === "help") {
+    return "greetings";
+  }
+
+  // Profile queries
   if (
-    q.includes("sip") || 
-    q.includes("systematic investment") || 
-    (q.includes("invest") && q.includes("monthly"))
+    q.includes("my profile") ||
+    q.includes("my financial profile") ||
+    q.includes("my income") ||
+    q.includes("my savings") ||
+    q.includes("show my details") ||
+    q.includes("what is my income")
   ) {
-    let sipAmount = parsedNums.amount || 5000;
-    let sipYears = parsedNums.years || 10;
-    let expectedRate = parsedNums.rate || 13;
-    const sipResult = calculateSIP(sipAmount, expectedRate, sipYears);
-
-    return `1. What is a SIP (Systematic Investment Plan)?
-A Systematic Investment Plan (SIP) is a disciplined investment method offered by Indian Mutual Funds. Instead of investing a large lump sum all at once, you invest a fixed amount regularly (monthly or quarterly) into your chosen mutual fund scheme.
-
-2. How SIP Works in Practice:
-- Automated Investing: The fixed amount is auto-debited from your bank account on a set date every month.
-- Rupee Cost Averaging: When the stock market dips, fund units become cheaper, so your fixed amount buys MORE units. When markets rise, it buys fewer units. This completely eliminates the stress of "timing the market".
-- Power of Compounding: Every rupee earned generates its own returns over time, multiplying your wealth exponentially.
-
-3. Key Advantages of SIP:
-- Accessible to Everyone: Start with as little as ₹500 or ₹1,000 per month.
-- High Historical Returns: Well-managed diversified equity and Nifty 50 index funds have delivered 12% to 15% CAGR over 5+ year horizons.
-- Complete Flexibility: You can pause, stop, increase (via Step-up SIP), or withdraw your funds at any time with zero lock-in (except for tax-saving ELSS funds which have a 3-year lock-in).
-
-4. Wealth Accumulation Simulation:
-If you invest ₹${sipAmount.toLocaleString('en-IN')} per month for ${sipYears} years at an expected ${expectedRate}% return:
-- Total Amount You Invest: ₹${sipResult.totalInvested.toLocaleString('en-IN')}
-- Estimated Wealth Accumulated: ₹${sipResult.futureValue.toLocaleString('en-IN')}
-- Pure Wealth Gain: ₹${sipResult.estimatedReturns.toLocaleString('en-IN')} (Your money grows by ${(sipResult.futureValue / sipResult.totalInvested).toFixed(1)}x!)
-
-5. Actionable Recommendation for You:
-Based on your recorded monthly income of ₹${income.toLocaleString('en-IN')}, aim to channel 15% to 20% of your monthly savings into a diversified portfolio consisting of:
-- 50% in a Nifty 50 Index Fund (stable, low expense ratio)
-- 30% in a Flexi-Cap or Large & Mid-Cap Fund (growth potential)
-- 20% in Sovereign Gold Bonds or Fixed Deposits (capital safety)`;
+    return "financial_profile";
   }
 
-  // 3. MUTUAL FUNDS & STOCKS
+  // KYC Questions
   if (
-    q.includes("mutual fund") || 
-    q.includes("mutual funds") || 
-    q.includes("index fund") || 
-    q.includes("equity fund") ||
-    q.includes("elss")
+    q.includes("kyc") ||
+    q.includes("know your customer") ||
+    q.includes("c-kyc") ||
+    q.includes("ckyc") ||
+    q.includes("video kyc") ||
+    q.includes("vkyc") ||
+    q.includes("ekyc")
   ) {
-    return `1. What is a Mutual Fund?
-A mutual fund pools money from thousands of investors to invest in a diversified basket of stocks, bonds, or government securities, professionally managed by an Asset Management Company (AMC) registered with SEBI.
-
-2. Major Categories of Mutual Funds in India:
-- Large Cap / Index Funds: Invest in India's top 100 companies (Nifty 50, Sensex). Low volatility, ideal for long-term core wealth (expected 11-13% return).
-- Flexi-Cap / Multi-Cap Funds: Fund managers dynamically invest across large, mid, and small companies based on market conditions.
-- Mid & Small Cap Funds: Invest in high-growth emerging companies. Higher volatility, suitable for aggressive investors with a 7+ year horizon.
-- ELSS (Equity Linked Savings Scheme): Tax-saving mutual fund offering deductions up to ₹1.5 Lakh under Section 80C, with the shortest lock-in period among all tax-saving instruments (only 3 years).
-- Debt & Liquid Funds: Invest in government bonds and corporate paper. High safety, predictable yields (6.5% - 7.5%), ideal for emergency parking.
-
-3. Direct vs Regular Plans:
-Always choose "Direct - Growth" plans over "Regular" plans. Direct plans have zero distributor commission, saving you 0.5% to 1.5% in expense ratio every single year, adding lakhs to your maturity value.
-
-4. Taxation on Mutual Funds (Post July 2024 Budget):
-- Long-Term Capital Gains (LTCG held > 1 year): 12.5% tax on gains exceeding ₹1.25 Lakh per financial year.
-- Short-Term Capital Gains (STCG held < 1 year): Taxed at flat 20%.`;
+    return "kyc_inquiry";
   }
 
-  if (q.includes("stock") || q.includes("share market") || q.includes("equity") || q.includes("trading") || q.includes("demat")) {
-    return `1. Stock Market Fundamentals:
-Buying a stock means purchasing a fractional ownership share of a publicly listed business on the BSE or NSE.
-
-2. How to Start in India:
-- Prerequisites: You need a PAN Card, Aadhaar-linked mobile number, and a Demat & Trading account with a SEBI-registered broker (such as Zerodha, Groww, AngelOne, or bank-backed brokers like HDFC Sky/ICICI Direct).
-- Initial Strategy: Beginners should prioritize fundamentally sound, large-cap companies with consistent profitability, low debt-to-equity ratios, and strong return on equity (ROE > 15%).
-
-3. Direct Stocks vs Mutual Funds:
-- Direct Stocks: Offer maximum upside potential but require time, financial statement analysis, and portfolio monitoring.
-- Mutual Funds / ETFs: Provide instant diversification across 50+ companies with professional fund management and lower individual company risk.
-
-4. Key Risk Management Golden Rules:
-- Never invest emergency funds or borrowed money into direct equities.
-- Maintain a minimum 3 to 5 year horizon to ride out short-term market corrections.`;
+  // Loan Application Intent
+  if (
+    q.includes("apply for a loan") ||
+    q.includes("apply for loan") ||
+    q.includes("want to apply for a loan") ||
+    q.includes("want to apply for loan") ||
+    q.includes("how to apply for a loan") ||
+    q.includes("how to apply for loan") ||
+    q.includes("how can i apply for a loan") ||
+    q.includes("how can i apply for loan") ||
+    q.includes("loan application") ||
+    q.includes("apply loan") ||
+    q.includes("where to apply for loan") ||
+    q.includes("steps to apply for loan")
+  ) {
+    return "loan_application";
   }
 
-  // 4. FIXED DEPOSITS (FD)
-  if (q.includes("fixed deposit") || q.includes(" fd ") || q.endsWith(" fd") || q.startsWith("fd ") || q.includes("recurring deposit") || q.includes(" rd ")) {
-    return `1. What is a Fixed Deposit (FD)?
-A Fixed Deposit is a low-risk financial instrument provided by banks and NBFCs where you deposit a lump sum for a predetermined period at a guaranteed, fixed interest rate.
-
-2. Current FD Interest Rate Landscape in India:
-- Public Sector Banks (SBI, BoB, PNB): 6.80% to 7.25% p.a. for tenures of 1 to 5 years.
-- Private Banks (HDFC, ICICI, Axis): 7.00% to 7.40% p.a.
-- Small Finance Banks (AU Small Finance, Equitas, Ujjivan): Special tenures offering between 8.00% and 8.60% p.a.
-- Senior Citizens Privilege: Receive an additional 0.50% to 0.75% interest over standard public rates.
-
-3. Safety Guarantee (DICGC Protection):
-Under RBI's Deposit Insurance and Credit Guarantee Corporation (DICGC), your bank deposits (including principal and interest across savings, current, and FDs) are 100% legally insured up to ₹5,00,000 (5 Lakhs) per depositor per registered bank.
-
-4. Tax on FD Interest:
-- Interest earned is added to your total income and taxed at your applicable income tax slab rate.
-- Banks deduct 10% TDS if interest income exceeds ₹40,000/year (₹50,000 for senior citizens). You can submit Form 15G / 15H if your total income is non-taxable.`;
+  // Loan Eligibility Intent
+  if (
+    q.includes("loan eligibility") ||
+    q.includes("eligible for a loan") ||
+    q.includes("eligible for loan") ||
+    q.includes("am i eligible") ||
+    q.includes("how much loan can i get") ||
+    q.includes("how much loan will i get") ||
+    q.includes("maximum loan amount") ||
+    q.includes("check my eligibility") ||
+    q.includes("check eligibility") ||
+    q.includes("can i get a loan")
+  ) {
+    return "loan_eligibility";
   }
 
-  // 5. HOME LOANS
-  if (q.includes("home loan") || q.includes("housing loan")) {
-    return `1. What is a Home Loan?
-A secured credit facility granted by banks and housing finance companies (HFCs) to purchase a ready-to-move apartment, under-construction property, plot, or for house renovation.
-
-2. Benchmark Interest Rates & Terms in India:
-- Prevailing Interest Rates: 8.35% to 9.50% p.a., floating and tied to the RBI Repo Linked Lending Rate (RLLR).
-- Loan-to-Value (LTV) Ratio: Banks fund up to 90% for loans up to ₹30 Lakhs, 80% for loans between ₹30L to ₹75L, and 75% for loans above ₹75 Lakhs.
-- Tenure: Up to 30 years, lowering monthly EMI obligations.
-
-3. Triple Tax Deductions Available:
-- Section 80C: Deduct up to ₹1,50,000 on principal repayment per year.
-- Section 24(b): Deduct up to ₹2,00,000 on home loan interest paid for a self-occupied property.
-- Joint Home Loans: If co-borrowing with spouse, BOTH co-borrowers can separately claim these limits, doubling total deductions to ₹7 Lakhs per household!
-
-4. Eligibility for Your Profile:
-With your monthly income of ₹${income.toLocaleString('en-IN')}, your comfortable loan sanction capacity is approximately ₹${(safeEmi * 115).toLocaleString('en-IN')} for a 20-year term.`;
+  // Specific loan categories
+  if (q.includes("home loan") || q.includes("housing loan") || q.includes("mortgage loan")) {
+    return "home_loan";
   }
 
-  // 6. PERSONAL LOANS
-  if (q.includes("personal loan")) {
-    return `1. What is a Personal Loan?
-An unsecured credit facility that requires no collateral or asset pledge. Approval is based primarily on your monthly salary, employer reputation, and CIBIL credit score.
-
-2. Key Terms & Rate Ranges:
-- Interest Rates: 10.25% to 15.00% p.a. for prime salaried borrowers (can exceed 18% for lower CIBIL scores).
-- Tenure: 12 months to 60 months (1 to 5 years).
-- Disbursal Speed: Instant to 24 hours digitally via net banking.
-
-3. Critical Precautions Before Availing:
-- Processing Fees: Compare processing fees (typically 1% to 2.5% + 18% GST).
-- Preclosure Charges: Check lock-in clauses and part-prepayment charges.
-- EMI Limit: Ensure your total monthly personal loan EMI does not exceed 25% of your in-hand salary.`;
+  if (q.includes("personal loan") || q.includes("instant loan") || q.includes("unsecured loan")) {
+    return "personal_loan";
   }
 
-  // 7. CIBIL & CREDIT SCORE
+  if (q.includes("car loan") || q.includes("vehicle loan") || q.includes("auto loan") || q.includes("bike loan") || q.includes("two wheeler loan")) {
+    return "vehicle_loan";
+  }
+
+  // SIP Definition vs SIP Calculation
+  const isSipDef = (
+    q.includes("what is sip") ||
+    q.includes("what is a sip") ||
+    q.includes("explain sip") ||
+    q.includes("sip definition") ||
+    q.includes("sip meaning") ||
+    q.includes("how does sip work") ||
+    q.includes("how sip works") ||
+    q.includes("what is systematic investment") ||
+    q.includes("difference between sip") ||
+    q === "sip"
+  );
+
+  const isSipCalc = (
+    q.includes("calculate sip") ||
+    q.includes("sip calculator") ||
+    q.includes("sip return") ||
+    q.includes("sip calculation") ||
+    (q.includes("sip") && (params.amount || params.rate || params.years || q.includes("for") || q.includes("invest")))
+  );
+
+  if (isSipDef && !params.amount && !params.rate && !params.years && !q.includes("calculate")) {
+    return "sip_definition";
+  }
+
+  if (isSipCalc) {
+    return "sip_calculation";
+  }
+
+  // EMI Definition vs EMI Calculation
+  const isEmiDef = (
+    q.includes("what is emi") ||
+    q.includes("what is an emi") ||
+    q.includes("explain emi") ||
+    q.includes("emi definition") ||
+    q.includes("emi meaning") ||
+    q.includes("how does emi work") ||
+    q.includes("how emi works") ||
+    q.includes("emi formula") ||
+    q === "emi"
+  );
+
+  const isEmiCalc = (
+    q.includes("calculate emi") ||
+    q.includes("emi calculator") ||
+    q.includes("emi for") ||
+    q.includes("how much emi") ||
+    (q.includes("emi") && (params.amount || params.rate || params.years || q.includes("calculate")))
+  );
+
+  if (isEmiDef && !params.amount && !params.rate && !params.years && !q.includes("calculate")) {
+    return "emi_definition";
+  }
+
+  if (isEmiCalc) {
+    return "emi_calculation";
+  }
+
+  // General Financial Education Topics
+  if (q.includes("compounding") || q.includes("compound interest") || q.includes("power of compounding")) {
+    return "compounding_education";
+  }
+
   if (q.includes("cibil") || q.includes("credit score") || q.includes("credit rating")) {
-    return `1. What is a CIBIL Score?
-A 3-digit numerical summary (ranging from 300 to 900) prepared by credit bureaus (TransUnion CIBIL, Experian, Equifax, CRIF High Mark) reflecting your past credit repayment track record.
-
-2. Score Tiers for Loan Approvals:
-- 750 to 900 (Excellent): Guaranteed fastest loan approvals at the lowest discounted interest rates.
-- 700 to 749 (Good): Eligible for most credit products with standard terms.
-- 600 to 699 (Fair): Lenders may demand higher interest rates, higher collateral, or reject unsecured loans.
-- Below 600 (Poor): High rejection rate; requires immediate remedial rebuilding.
-
-3. 5 Proven Rules to Boost Your CIBIL Score Above 750:
-- 100% On-Time Payments: Paying EMIs and credit card bills before the due date contributes 35% of your total score weight.
-- Credit Utilization Ratio (CUR) < 30%: If your credit card limit is ₹1,00,000, never spend more than ₹30,000 in a billing cycle.
-- Maintain Credit Age: Do not close your oldest credit cards, as long credit history boosts trustworthiness.
-- Healthy Credit Mix: Maintain a balanced combination of secured loans (home/car) and unsecured lines (credit cards).
-- Avoid Hard Inquiry Spikes: Do not apply for multiple loans or cards across different banks within a short window.`;
+    return "cibil_education";
   }
 
-  // 8. TAXATION: NEW VS OLD REGIME
   if (q.includes("tax") || q.includes("income tax") || q.includes("80c") || q.includes("new regime") || q.includes("old regime")) {
-    return `1. New Tax Regime vs Old Tax Regime (Budget 2024-25 Updates):
-- New Tax Regime (Default):
-  - Standard deduction increased to ₹75,000 for salaried employees.
-  - Slabs: Up to ₹3L (Nil), ₹3L-₹7L (5%), ₹7L-₹10L (10%), ₹10L-₹12L (15%), ₹12L-₹15L (20%), Above ₹15L (30%).
-  - Zero Tax under Section 87A rebate for taxable incomes up to ₹7,75,000 (after standard deduction).
-  - Simpler, but does NOT allow deductions like 80C, 80D, or HRA.
-- Old Tax Regime (Optional):
-  - Allows full claim of Section 80C (up to ₹1.5L), 80D Health Insurance (up to ₹25k-₹50k), HRA exemptions, Home Loan Interest under Section 24b (₹2L), and NPS (80CCD(1B) - ₹50k).
-  - Beneficial if your total eligible deductions exceed ₹3.75 Lakhs to ₹4 Lakhs.
-
-2. Top Tax-Saving Instruments under 80C (Max ₹1.5 Lakhs):
-- ELSS Mutual Funds: 3-year lock-in, 12-15% expected equity growth.
-- Public Provident Fund (PPF): 15-year tenure, 7.1% tax-free sovereign interest.
-- EPF / VPF: Employee Provident Fund contributions.
-- Sukanya Samriddhi Yojana (SSY): 8.2% guaranteed returns for girl child.
-- National Savings Certificate (NSC) & 5-Year Bank Tax Saver FDs.`;
+    return "tax_education";
   }
 
-  // 9. SOVEREIGN SCHEMES
-  if (
-    q.includes("scheme") || 
-    q.includes("myscheme") || 
-    q.includes("ppf") || 
-    q.includes("nps") || 
-    q.includes("sukanya") || 
-    q.includes("atal pension") || 
-    q.includes("mudra") || 
-    q.includes("pmay")
-  ) {
-    return `1. Sovereign Wealth & Social Security Schemes in India:
-- Public Provident Fund (PPF): 7.1% interest p.a. complete EEE tax-exempt status (Exempt on investment, interest, and maturity) with 15-year tenure.
-- National Pension System (NPS): Market-linked retirement account with extra ₹50,000 deduction under Section 80CCD(1B) over and above 80C.
-- Sukanya Samriddhi Yojana (SSY): High 8.2% sovereign guaranteed return for girls under 10 years, full EEE tax exemption under 80C.
-- Atal Pension Yojana (APY): Guaranteed monthly pension of ₹1,000 to ₹5,000 from age 60 for unorganized sector workers aged 18 to 40.
-- Senior Citizens Savings Scheme (SCSS): 8.2% quarterly paid interest for retirees aged 60+, deposit ceiling up to ₹30 Lakhs.
-- Pradhan Mantri Mudra Yojana (PMMY): Collateral-free micro-business loans under Shishu (up to ₹50k), Kishore (₹50k-₹5L), and Tarun (up to ₹10L/₹20L).
-- Pradhan Mantri Awas Yojana (PMAY): Interest subsidy up to ₹2.67 Lakhs on housing loans under Credit Linked Subsidy Scheme.
-
-2. Explore Schemes Tab:
-FinTwin has a dedicated "Schemes" section loaded with official Government of India myScheme data where you can view eligibility criteria, required documents, and apply directly via myscheme.gov.in!`;
+  if (q.includes("save money") || q.includes("how to save") || q.includes("budget") || q.includes("emergency fund") || q.includes("savings")) {
+    return "savings_education";
   }
 
-  // 10. EMERGENCY FUND & BUDGETING
-  if (q.includes("emergency fund") || q.includes("budget") || q.includes("savings") || q.includes("how much to save")) {
-    const monthlyExp = Number(profile?.monthlyExpenses) || 25000;
-    return `1. What is an Emergency Fund?
-An emergency fund is a liquid financial buffer set aside strictly for unforeseen crises such as job loss, medical emergencies, or critical car/home repairs.
-
-2. How Much Do You Need?
-- Standard Rule: 3 to 6 months of mandatory living expenses.
-- Personalized Computation for You:
-  - Your recorded monthly expenses: ₹${monthlyExp.toLocaleString('en-IN')}/month.
-  - Recommended 3-Month Fund: ₹${(monthlyExp * 3).toLocaleString('en-IN')}
-  - Recommended 6-Month Fund: ₹${(monthlyExp * 6).toLocaleString('en-IN')}
-
-3. Where to Park Your Emergency Fund:
-- 50% in a High-Yield Savings Account (instant debit card ATM access).
-- 50% in an Overnight or Liquid Mutual Fund (yields 6.5% - 7.0% with T+1 instant withdrawal).
-
-4. The 50 / 30 / 20 Budgeting Principle:
-- 50% for Needs: Rent, groceries, utility bills, school fees, EMIs.
-- 30% for Wants: Dining out, leisure travel, gadgets, entertainment.
-- 20% for Savings & Investments: SIPs, PPF, emergency fund, and retirement corpus.`;
+  if (q.includes("where to invest") || q.includes("how to invest") || q.includes("beginner invest") || q.includes("investment options") || q.includes("start investing")) {
+    return "investment_roadmap";
   }
 
-  // 11. GREETINGS
-  if (q === "hi" || q === "hello" || q === "hey" || q.includes("who are you") || q.includes("what can you do")) {
-    return `1. Welcome to FinTwin AI Advisor!
-I am your personal financial intelligence assistant designed to help retail Indian borrowers and investors make smarter, data-backed monetary decisions.
-
-2. What You Can Ask Me:
-- Investment Insights: "What is SIP?", "Explain Mutual Funds vs FDs", "Where should I invest ₹10,000 monthly?"
-- Loan Calculations & Guidance: "Calculate EMI for ₹25 Lakhs at 8.5% for 20 years", "How to get a home loan?", "What is a good CIBIL score?"
-- Government Schemes: "What schemes can I get for housing?", "Explain Sukanya Samriddhi Yojana or PPF"
-- Tax Planning: "New vs Old Tax Regime", "How to save tax under 80C?"
-- Bank Comparisons: "Compare SBI vs HDFC loan rates"
-
-3. Your Current Profile Context:
-- Monthly Income: ₹${income.toLocaleString('en-IN')}
-- Safe Monthly EMI Ceiling: ₹${safeEmi.toLocaleString('en-IN')}
-- Active Bank Mode: ${activeBank || "Universal Multi-Bank Explorer"}
-
-How can I assist you with your financial planning today?`;
+  if (q.includes("mutual fund") || q.includes("index fund") || q.includes("stock") || q.includes("share market") || q.includes("equity")) {
+    return "market_education";
   }
 
-  // 12. GENERAL FINANCIAL ADVISORY
-  return `1. FinTwin Financial Intelligence Analysis for "${query}":
-- Core Principle: In Indian personal finance, this topic relates to managing your capital allocation, debt management, or risk protection effectively.
-- Practical Takeaway: Always evaluate the risk-adjusted returns, tax implications (under Old/New regime), liquidity constraints, and lock-in periods before committing capital.
+  if (q.includes("fixed deposit") || q.includes(" fd ") || q.endsWith(" fd") || q.startsWith("fd ") || q.includes("recurring deposit") || q.includes(" rd ")) {
+    return "fd_education";
+  }
 
-2. Personal Financial Profile Context:
-- Recorded In-Hand Monthly Income: ₹${income.toLocaleString('en-IN')}
-- Safe Debt Servicing Ceiling (40% Rule): ₹${safeEmi.toLocaleString('en-IN')}/month
-- Risk Appetite: ${profile?.riskAppetite || "Moderate"}
+  if (q.includes("scheme") || q.includes("ppf") || q.includes("nps") || q.includes("sukanya") || q.includes("atal pension") || q.includes("mudra") || q.includes("pmay")) {
+    return "schemes_education";
+  }
 
-3. Key Recommendations for Action:
-- Capital Safety: Prioritize establishing a 3-6 month emergency fund before speculative investments.
-- Systematic Growth: Utilize monthly SIPs in diversified index mutual funds for goals > 5 years.
-- Tax Optimization: Review applicable deductions under Section 80C, 80D, and the New Tax Regime.
+  if (q.includes("types of loans") || q.includes("loan types") || q.includes("loans available")) {
+    return "loan_types_education";
+  }
 
-4. Explore Further:
-You can ask me to calculate exact EMIs, compare loan products across banks, or explore sovereign schemes under the Schemes tab!`;
+  // Check if query is completely unrelated to personal finance
+  const financialKeywords = [
+    "money", "finance", "bank", "loan", "interest", "emi", "sip", "invest", "stock", "mutual",
+    "fund", "tax", "deposit", "cibil", "credit", "card", "budget", "saving", "rupee", "cash",
+    "wealth", "debt", "repay", "income", "salary", "scheme", "gold", "fd", "rd", "portfolio",
+    "document", "statement", "dollar", "usd", "balance", "transaction"
+  ];
+  const hasFinanceKeyword = financialKeywords.some(keyword => q.includes(keyword));
+  if (!hasFinanceKeyword) {
+    return "unsupported_query";
+  }
+
+  return "general_finance";
+}
+
+/**
+ * Main Advisory & Guidance Engine
+ * Uses verified profile info, robust deterministic calculations, and clear query/intent routing.
+ */
+function generateFinTwinAdvisory(query, activeBank = "", profile = {}, documentContext = null, documentMeta = null) {
+  const verified = getVerifiedProfile(profile);
+  const parsedNums = extractFinancialNumbers(query);
+  const qLower = (query || "").toLowerCase();
+
+  // 0. QUERY ROUTING & CLASSIFICATION (DESCRIPTIVE, ANALYTICAL, ADVISORY)
+  const isDocumentQuery = !!documentContext || /\b(document|statement|attached\s*file|uploaded\s*file)\b/i.test(qLower);
+  const category = classifyQuery(query, isDocumentQuery);
+
+  // DESCRIPTIVE CATEGORY: Bank statement / document reading, summarization, transaction review
+  if (category === "DESCRIPTIVE" || documentContext || qLower.includes("what does this document contain") || qLower.includes("summarize this")) {
+    const rawContent = documentContext || query;
+    const currency = documentMeta?.currency || detectCurrency(rawContent);
+    const bankName = documentMeta?.bankName || detectBankName(rawContent) || "Bank / Financial Institution";
+
+    // Tabular parsing
+    const parsed = parseTabularBankStatement(rawContent, documentMeta?.fileName || "Bank Statement");
+    const sym = currency.symbol;
+
+    let transactionSummary = "";
+    if (parsed.rows && parsed.rows.length > 0) {
+      transactionSummary = parsed.rows.slice(0, 15).map(r => `- **${r[0] || 'Date'}**: ${r[1] || ''} | Amount: ${sym}${r[2] || ''} ${r[3] ? `| Balance: ${sym}${r[3]}` : ''}`).join('\n');
+    }
+
+    return `## Document Summary: ${parsed.fileName || "Bank Statement"}
+
+### 1. Document Overview
+- **Issuing Institution:** **${bankName}**
+- **Original Currency:** **${currency.code} (${sym})**
+- **Record Type:** Bank Account Statement / Financial Activity
+
+### 2. Statement Details & Extracted Content
+${transactionSummary ? `**Recorded Transactions (${currency.code}):**\n${transactionSummary}\n` : `This document is an authentic financial record issued by **${bankName}** denominated in **${currency.code} (${sym})**.\n\n- All figures and balances are presented strictly in the original document currency (**${currency.code}**).\n- No currency conversion or unrelated financial advice has been applied.`}
+
+### 3. Factual Verification
+- **Currency Preservation:** Denominated strictly in **${currency.code} (${sym})** without unauthorized conversion to INR.
+- **Institution Accuracy:** Attributed strictly to **${bankName}** without unsolicited assumptions.`;
+  }
+
+  const cleanQ = qLower.replace(/[?!.,]/g, '').trim();
+
+  // Check if query is explicitly asking for monthly income
+  if (cleanQ === "what is my income" || cleanQ === "what is my monthly income" || (cleanQ.includes("my income") && !cleanQ.includes("savings") && !cleanQ.includes("loan") && !cleanQ.includes("profile"))) {
+    if (!verified.hasIncome) {
+      return "Income information not available.";
+    }
+    return `Your recorded verified monthly income is **₹${verified.monthlyIncome.toLocaleString('en-IN')}**.`;
+  }
+
+  // Check if query is asking specifically for savings
+  if (qLower.includes("my savings") || qLower.includes("calculate my savings") || qLower.includes("savings buffer")) {
+    if (verified.isSuspicious) {
+      return `⚠️ **Suspicious Data Detected:** ${verified.suspiciousReason}\n\nSavings calculation has been halted to prevent a misleading financial profile. Please verify your income and expense records.`;
+    }
+    if (!verified.hasIncome) {
+      return "Income information not available. Cannot calculate monthly savings.";
+    }
+    if (verified.monthlyExpenses === null) {
+      return "Expenses information not available. Cannot calculate monthly savings.";
+    }
+    return `Based on your verified income of ₹${verified.monthlyIncome.toLocaleString('en-IN')} and monthly expenses of ₹${verified.monthlyExpenses.toLocaleString('en-IN')}:\n\n- **Monthly Savings:** **₹${verified.monthlySavings.toLocaleString('en-IN')}**\n- **Formula:** Savings = Monthly Income (₹${verified.monthlyIncome.toLocaleString('en-IN')}) - Monthly Expenses (₹${verified.monthlyExpenses.toLocaleString('en-IN')}) = ₹${verified.monthlySavings.toLocaleString('en-IN')}`;
+  }
+
+  // Check if query is asking specifically for safe EMI capacity / FOIR
+  if (qLower.includes("emi capacity") || qLower.includes("foir") || qLower.includes("how much emi can i afford")) {
+    if (!verified.hasIncome) {
+      return "Income information not available. Safe EMI capacity cannot be calculated.";
+    }
+    return `## Safe EMI Capacity Assessment\n\n${verified.foirMessage}`;
+  }
+
+  const intent = detectIntent(query, parsedNums);
+
+  // 1. GREETINGS
+  if (intent === "greetings") {
+    const profileSummary = verified.hasIncome
+      ? `\n- **Monthly Income:** ₹${verified.monthlyIncome.toLocaleString('en-IN')}\n- **Safe EMI Capacity (40% rule):** ₹${verified.safeEmiCeiling.toLocaleString('en-IN')}/month`
+      : `\n- *Tip: Set your monthly income in your Profile for personalized borrowing limits and budgets.*`;
+
+    return `## Welcome to FinTwin AI Advisor!
+
+I am your personal financial companion for retail banking, investments, loans, and sovereign schemes.
+
+### What You Can Ask Me:
+- **Loan Inquiries & EMIs:** *"What is an EMI?"*, *"Calculate EMI for ₹20 Lakhs at 8.75% for 15 years"*, *"I want to apply for a loan"*, *"Am I eligible for a loan?"*
+- **SIP & Investments:** *"What is SIP?"*, *"Calculate SIP for ₹5,000 at 12% for 10 years"*, *"Where should a beginner invest?"*
+- **Compliance & Credit:** *"What is KYC and why is it needed?"*, *"How do I boost my CIBIL score above 750?"*
+- **Document Analysis:** Upload a bank statement and ask *"What does this document contain?"*
+
+**Your Profile Status:**${profileSummary}
+
+How can I assist your financial journey today?`;
+  }
+
+  // 2. FINANCIAL PROFILE INQUIRY
+  if (intent === "financial_profile") {
+    if (verified.isSuspicious) {
+      return `⚠️ **Suspicious Financial Data Detected:** ${verified.suspiciousReason}\n\nFinancial profile generation has been paused to prevent misleading analysis. Please review your income and expense figures for decimal errors, extra zeros, or unit scaling (paise vs rupees).`;
+    }
+
+    if (!verified.hasIncome) {
+      return `## Your FinTwin Financial Profile
+
+We currently do not have verified income data recorded for your account.
+
+- **Monthly Income:** Income information not available.
+- **Monthly Expenses:** ${verified.monthlyExpenses !== null ? `₹${verified.monthlyExpenses.toLocaleString('en-IN')}` : "Not provided"}
+- **Occupation:** ${verified.occupation}
+- **Risk Profile:** ${verified.riskAppetite}
+- **Active Bank:** ${verified.activeBank}
+- **Safe EMI Capacity:** Cannot be calculated without income information.
+
+To receive tailored loan eligibility assessments, debt-to-income feasibility, and customized savings plans, please update your monthly in-hand income in the **Profile** tab or tell me your monthly income here.`;
+    }
+
+    return `## Your FinTwin Financial Profile
+
+Here is your verified financial profile data:
+
+- **Verified Monthly In-Hand Income:** **₹${verified.monthlyIncome.toLocaleString('en-IN')}**
+- **Recorded Monthly Expenses:** ${verified.monthlyExpenses !== null ? `₹${verified.monthlyExpenses.toLocaleString('en-IN')}` : "Not provided"}
+- **Estimated Monthly Savings:** **${verified.savingsText}**
+- **Safe EMI Ceiling (40% FOIR Rule):** **₹${verified.safeEmiCeiling.toLocaleString('en-IN')}/month**
+- **Occupation:** ${verified.occupation}
+- **Risk Profile:** ${verified.riskAppetite}
+- **Active Bank:** ${verified.activeBank}
+
+You can ask me to run loan feasibility checks or investment calculations based on these verified metrics!`;
+  }
+
+  // 3. KYC INQUIRY
+  if (intent === "kyc_inquiry") {
+    return `## Understanding KYC (Know Your Customer)
+    
+### 1. What is KYC?
+**KYC (Know Your Customer)** is a mandatory verification process established by regulatory authorities (such as the **Reserve Bank of India (RBI)** and **SEBI**). It requires financial institutions to authenticate the identity and address of customers before opening accounts, issuing credit, or investing funds, preventing financial fraud and money laundering.
+
+### 2. Officially Valid Documents (OVD)
+To complete your KYC verification with any bank, mutual fund, or NBFC, you must provide:
+- **Proof of Identity (PoI):** Permanent Account Number (PAN) Card or Form 60, Aadhaar Card, Passport, or Voter ID.
+- **Proof of Address (PoA):** Aadhaar Card, Passport, Voter ID, Valid Driving License, or Utility bills (electricity/water bill under 2 months old).
+- **Recent Photograph:** Passport-size photograph.
+
+### 3. Digital KYC Verification Modes
+- **Aadhaar OTP e-KYC:** Instant digital verification via OTP sent to your Aadhaar-linked mobile number.
+- **Video KYC (V-KYC):** Full digital KYC completed in a few minutes via a live video call with a bank officer displaying your original PAN card.
+- **Central KYC (C-KYC):** Generates a unique 14-digit **KIN (KYC Identification Number)** managed by CERSAI, allowing you to open new financial accounts without re-submitting physical documents across institutions.`;
+  }
+
+  // 4. LOAN APPLICATION GUIDANCE
+  if (intent === "loan_application") {
+    const incomeFeasibility = verified.hasIncome
+      ? `\n- **Your Recorded Income:** ₹${verified.monthlyIncome.toLocaleString('en-IN')}/month\n- **Safe Total EMI Capacity (40% rule):** Up to **₹${verified.safeEmiCeiling.toLocaleString('en-IN')}/month** across all loans.`
+      : `\n- *Note: Please provide your monthly income if you would like me to calculate your safe EMI ceiling and loan amount eligibility.*`;
+
+    return `## How to Apply for a Loan: Step-by-Step Guide
+
+If you want to apply for a loan, follow this structured process to maximize your approval chances and secure the best interest rate:
+
+### Step 1: Select the Appropriate Loan Category
+- **Home Loan:** Secured against residential property; lowest interest rates (indicative: ~8.35% – 9.25% p.a.) with tenures up to 30 years.
+- **Personal Loan:** Unsecured with zero collateral required; fastest approval (indicative: ~10.25% – 15.00% p.a.) with tenures from 1 to 5 years.
+- **Vehicle Loan:** Secured against hypothecation of car or bike; tenures up to 7 years.
+- **MSME / Business Loan:** Collateral-free options available under sovereign programs like **MUDRA Yojana** up to ₹10–20 Lakhs.
+
+### Step 2: Check Eligibility Prerequisites
+- **Credit Score:** A score of **750 or above** unlocks faster approvals and discounted interest rates.
+- **Debt-to-Income / FOIR:** Your total existing monthly EMIs plus the new loan EMI should not exceed **40% to 50%** of your net monthly income.${incomeFeasibility}
+
+### Step 3: Organize Required Documentation
+1. **Identity & Address Proof:** PAN Card, Aadhaar Card, Passport, or Voter ID.
+2. **Income Verification:**
+   - *Salaried:* Last 3 to 6 months of salary slips, Form 16, and 6 months bank statements showing salary credits.
+   - *Self-Employed / Business:* Last 2 to 3 years of filed Income Tax Returns (ITR) with computation of income, P&L statements, and 6–12 months current account statements.
+3. **Property Documents:** (For Home Loans) Sale deed, Title search report, NOC from builder/society.
+
+### Step 4: Submission & Application Channels
+- **Online / NetBanking:** If you hold a primary savings account with ${activeBank || "your bank"}, check for **pre-approved digital loan offers** in their mobile banking app for near-instant disbursal.
+- **Branch Visit:** Submit the physical application with self-attested documents to a loan officer.
+- **Comparison Tip:** Always compare the **processing fee** (0.5%–2%) and check for prepayment/foreclosure penalties before signing the agreement.
+
+**Which loan type are you looking to apply for?** Let me know (e.g., Home Loan, Personal Loan, Car Loan), and I can provide the exact checklist and interest rate benchmarks.`;
+  }
+
+  // 5. LOAN ELIGIBILITY
+  if (intent === "loan_eligibility") {
+    if (!verified.hasIncome) {
+      return `## Loan Eligibility Assessment
+
+To assess your loan eligibility and determine how much you can borrow, lenders evaluate:
+
+1. **Monthly In-Hand Income:** Used to calculate your Fixed Obligation to Income Ratio (FOIR).
+2. **Existing Obligations:** Any current running credit card EMIs, personal loans, or vehicle loans.
+3. **Credit Score:** Scores above 750 secure prime approval status.
+4. **Loan Tenure & Interest Rate:** Longer tenures lower monthly installments, increasing the sanctioned principal.
+
+> ℹ️ **Income Information Needed:**  
+> Your monthly income is not currently recorded in your profile. To evaluate your borrowing capacity and safe EMI ceiling accurately, please share your **monthly in-hand income** and details of any **existing loan EMIs**.`;
+    }
+
+    const maxSafeEmi = verified.safeEmiCeiling;
+    const estHomeLoanPrincipal = Math.round((maxSafeEmi / 8.68) * 1000);
+    const estPersonalLoanPrincipal = Math.round((maxSafeEmi / 21.74) * 1000);
+
+    return `## Loan Eligibility Assessment for Your Profile
+
+Based on your verified monthly in-hand income of **₹${verified.monthlyIncome.toLocaleString('en-IN')}**:
+
+### 1. Safe Borrowing Capacity (40% FOIR Guideline)
+- **Maximum Safe Total EMI:** **₹${maxSafeEmi.toLocaleString('en-IN')}/month**
+- *Note: If you have existing ongoing EMIs, your allowable new EMI is ₹${maxSafeEmi.toLocaleString('en-IN')} minus your current monthly EMI commitments.*
+
+### 2. Indicative Eligible Loan Amounts (Assuming Zero Current Debt)
+- **Home Loan (8.5% p.a. for 20 Years):** Eligible principal up to approximately **₹${estHomeLoanPrincipal.toLocaleString('en-IN')}**.
+- **Personal Loan (11.0% p.a. for 5 Years):** Eligible principal up to approximately **₹${estPersonalLoanPrincipal.toLocaleString('en-IN')}**.
+
+### 3. Key Criteria Lenders Check Before Sanction
+- **Credit Score:** Target **750+** for the lowest rates.
+- **Employment Stability:** Minimum 1 year continuous employment (or 2-3 years of ITR for self-employed individuals).`;
+  }
+
+  // 6. SIP DEFINITION
+  if (intent === "sip_definition") {
+    return `## Understanding SIP (Systematic Investment Plan)
+
+### 1. What is a SIP?
+A **Systematic Investment Plan (SIP)** is a disciplined investment methodology offered by mutual funds. Instead of investing a large lump sum all at once, an investor commits to investing a **fixed sum of money at regular intervals** (typically monthly or quarterly) into a chosen mutual fund scheme.
+
+### 2. How Does a SIP Work?
+- **Automated Deduction:** The fixed amount is automatically debited from your linked bank account on your chosen date each month via auto-debit mandate.
+- **Unit Allocation:** The debited amount is used to purchase units of the mutual fund scheme at the prevailing **Net Asset Value (NAV)** on that day.
+- **Compounding Growth:** Dividend gains and market appreciation compound over time, generating wealth on both your original contributions and accumulated returns.
+
+### 3. Core Advantages of SIP
+- **Rupee Cost Averaging:** When stock markets dip, your fixed monthly allocation buys more units at lower NAVs. When markets rise, you buy fewer units. Over several years, this averages out your purchase cost and eliminates the stress of timing the market.
+- **Financial Discipline:** Encourages systematic, monthly savings right after salary credit.
+- **Flexibility & Accessibility:** You can start a SIP with modest amounts (e.g., ₹500 or $50 per month). You can pause, increase, or stop your SIP at any time.
+- **Power of Compounding:** By staying invested over a 5, 10, or 15+ year horizon, compounding can create substantial long-term wealth.
+
+### 4. SIP vs Lump-Sum Investing
+| Feature | Systematic Investment Plan (SIP) | Lump-Sum Investment |
+|---|---|---|
+| **Capital Commitment** | Small recurring installments | Large one-time amount |
+| **Market Timing Risk** | Eliminated through Rupee Cost Averaging | High risk of entering at market peaks |
+
+### 5. Simulating SIP Returns
+If you would like to see an exact mathematical projection for an investment amount, you can ask me anytime, for example:
+- *"Calculate SIP for ₹5,000 at 12% for 10 years"*`;
+  }
+
+  // 7. SIP CALCULATION
+  if (intent === "sip_calculation") {
+    const { amount, rate, years } = parsedNums;
+    const missing = [];
+    if (!amount) missing.push("- **Monthly Investment Amount** (e.g., ₹5,000/month)");
+    if (!rate) missing.push("- **Expected Annual Return Rate** (e.g., 12% p.a.)");
+    if (!years) missing.push("- **Investment Horizon / Tenure** (e.g., 10 years)");
+
+    if (missing.length > 0) {
+      return `## SIP Return Calculation
+
+To compute the deterministic future value of your Systematic Investment Plan, please provide the missing parameter(s):
+
+${missing.join('\n')}
+
+**Example query:**  
+*"Calculate SIP for ₹5,000 at 12% for 10 years"*`;
+    }
+
+    const sip = calculateSIP(amount, rate, years, parsedNums.months);
+    return `## Systematic Investment Plan (SIP) Calculation Results
+
+Based on your exact input parameters:
+
+- **Monthly Installment (P):** **₹${sip.totalInvested > 0 ? (amount).toLocaleString('en-IN') : amount}**
+- **Expected Return Rate (r):** **${sip.expectedReturnRate}% p.a.**
+- **Tenure:** **${sip.tenureYears} Years** (${sip.tenureMonths} Months)
+
+### Deterministic Projections
+- **Total Amount Invested:** **₹${sip.totalInvested.toLocaleString('en-IN')}**
+- **Estimated Wealth Gain (Returns):** **₹${sip.estimatedReturns.toLocaleString('en-IN')}**
+- **Maturity / Future Value (FV):** **₹${sip.futureValue.toLocaleString('en-IN')}**
+
+*Formula: FV = P × [((1+i)ⁿ - 1) / i] × (1+i), where i = ${sip.expectedReturnRate}/12/100 and n = ${sip.tenureMonths}.*`;
+  }
+
+  // 8. EMI DEFINITION
+  if (intent === "emi_definition") {
+    return `## Understanding EMI (Equated Monthly Installment)
+
+### 1. What is an EMI?
+An **Equated Monthly Installment (EMI)** is a fixed payment amount made by a borrower to a lender at a specified date each calendar month. EMIs are applied to both interest and principal each month so that over a specified number of years, the loan is paid off in full.
+
+### 2. How is an EMI Structured?
+- **Principal Component:** The portion of the installment that directly reduces the borrowed loan balance.
+- **Interest Component:** The cost charged by the lender for the outstanding principal.
+- In the initial years of a loan, a larger portion of each EMI goes toward paying interest. Toward the end of the loan tenure, the majority of each EMI pays down the principal balance.
+
+### 3. Calculating Your EMI
+If you have a loan in mind, you can provide the loan amount, interest rate, and tenure:
+- *"Calculate EMI for ₹25 Lakhs at 8.5% for 20 years"*`;
+  }
+
+  // 9. EMI CALCULATION
+  if (intent === "emi_calculation") {
+    const { amount, rate, years } = parsedNums;
+    const missing = [];
+    if (!amount) missing.push("- **Loan Principal Amount** (e.g., ₹25,00,000)");
+    if (!rate) missing.push("- **Annual Interest Rate** (e.g., 8.5% p.a.)");
+    if (!years) missing.push("- **Loan Tenure** (e.g., 20 years)");
+
+    if (missing.length > 0) {
+      return `## EMI Calculation
+
+To compute your mathematically exact Equated Monthly Installment (EMI), please provide the missing parameter(s):
+
+${missing.join('\n')}
+
+**Example query:**  
+*"Calculate EMI for ₹25 Lakhs at 8.5% for 20 years"*`;
+    }
+
+    const emi = calculateEMI(amount, rate, years, parsedNums.months);
+    return `## Equated Monthly Installment (EMI) Calculation Results
+
+Based on your exact input parameters:
+
+- **Loan Principal Amount (P):** **₹${emi.principal.toLocaleString('en-IN')}**
+- **Annual Interest Rate (R):** **${emi.annualRate}% p.a.**
+- **Tenure:** **${emi.tenureYears} Years** (${emi.tenureMonths} Months)
+
+### Deterministic Breakdown
+- **Monthly EMI Payable:** **₹${emi.emi.toLocaleString('en-IN')} / month**
+- **Total Interest Payable:** **₹${emi.totalInterest.toLocaleString('en-IN')}**
+- **Total Amount Repayable (P + I):** **₹${emi.totalPayment.toLocaleString('en-IN')}**
+
+*Formula: EMI = [P × r × (1+r)ⁿ] / [(1+r)ⁿ - 1], where r = ${emi.annualRate}/12/100 and n = ${emi.tenureMonths}.*`;
+  }
+
+  // 10. UNSUPPORTED / OUT-OF-SCOPE QUERIES
+  if (intent === "unsupported_query") {
+    return `## FinTwin AI Advisor Scope
+
+I am FinTwin's dedicated **AI Financial Advisor**, designed to provide objective guidance on personal finance, banking, loans, investments, taxes, and document analysis.
+
+I can only answer financial and banking-related questions.
+
+### Recommended Topics You Can Explore:
+- **Loan Products & Calculations:** *"What is an EMI?"*, *"Calculate EMI for ₹15 Lakhs at 9% for 10 years"*, *"I want to apply for a loan"*
+- **Wealth & Systematic Investments:** *"What is SIP?"*, *"Calculate SIP for ₹5,000 at 12% for 10 years"*
+- **Document Analysis:** Upload a bank statement and ask *"What does this document contain?"*
+- **Compliance & Credit Health:** *"What is KYC and what documents are required?"*, *"How can I improve my credit score?"*
+
+Please feel free to ask any personal finance question!`;
+  }
+
+  // 11. GENERAL ADVISORY
+  return `## Financial Advisory Guidance
+
+When evaluating your financial goals:
+
+1. **Cash Flow & Capital Allocation:** Ensure that any financial commitment aligns with your monthly disposable income without compromising essential living expenses.
+2. **Borrowing vs Investing:** If evaluating a loan, target competitive interest rates, verify processing fees, and ensure total EMIs stay within a safe 40% FOIR threshold.
+3. **Emergency Reserves First:** Maintain a minimum 3 to 6-month living expense buffer before locking capital into illiquid investments.
+
+${verified.hasIncome ? `*Your Profile Capacity: Monthly Income ₹${verified.monthlyIncome.toLocaleString('en-IN')} | Safe EMI Threshold: ₹${verified.safeEmiCeiling.toLocaleString('en-IN')}/month*` : "*Tip: Update your monthly in-hand income in your Profile for personalized borrowing ceilings and budgeting recommendations.*"}`;
+}
+
+function generateSmartOfflineGuidance(query, activeBank = "", profile = {}, documentContext = null, documentMeta = null) {
+  return generateFinTwinAdvisory(query, activeBank, profile, documentContext, documentMeta);
 }
 
 module.exports = {
   calculateEMI,
   calculateSIP,
+  calculateTotalInterestPayable,
+  calculateTotalRepayment,
   extractFinancialNumbers,
-  generateFinTwinAdvisory
+  getVerifiedProfile,
+  detectIntent,
+  generateFinTwinAdvisory,
+  generateSmartOfflineGuidance,
+  validateFinancialValues,
+  calculateSavings,
+  calculateFOIRCapacity,
+  buildFinancialProfileWithProvenance,
+  detectCurrency,
+  detectBankName,
+  parseTabularBankStatement,
+  createTabularChunks,
+  ingestUserDocument,
+  retrieveDocumentContext,
+  classifyQuery,
+  validatePromptPayload,
+  buildPromptForCategory,
+  isolatedDocumentStore
 };

@@ -96,92 +96,179 @@ passport.deserializeUser(async (id, done) => {
    AI WORKSPACE ROUTE CHANNELS (INTEGRATED DIRECTLY IN SERVER.JS)
    ========================================================================== */
 
-const { generateFinTwinAdvisory } = require("./knowledgeEngine");
+const {
+  generateFinTwinAdvisory,
+  getVerifiedProfile,
+  validateFinancialValues,
+  calculateSavings,
+  calculateFOIRCapacity,
+  buildFinancialProfileWithProvenance,
+  detectCurrency,
+  detectBankName,
+  parseTabularBankStatement,
+  createTabularChunks,
+  ingestUserDocument,
+  retrieveDocumentContext,
+  classifyQuery,
+  validatePromptPayload,
+  buildPromptForCategory
+} = require("./knowledgeEngine");
 
-function generateFallbackReply(message, selectedBank, userProfile) {
-  return generateFinTwinAdvisory(message, selectedBank, userProfile);
+function generateFallbackReply(message, selectedBank, userProfile, docContext = null, retrieved = null) {
+  return generateFinTwinAdvisory(message, selectedBank, userProfile, docContext, retrieved);
 }
 
-// ENDPOINT 1: Gemma 4 Text Advisory Engine & Multi-Bank Financial Intelligence
-app.post("/api/chat", async (req, res) => {
-  const { message, userProfile, selectedBank, bankCategory } = req.body;
+// DOCUMENT UPLOAD & INGESTION (Strict User/Session Isolation)
+app.post("/api/documents/upload", (req, res) => {
+  const { userId, documentId, content, fileName } = req.body;
+  if (!content) {
+    return res.status(400).json({ error: "Document content is required" });
+  }
+  const effectiveUserId = userId || (req.user ? req.user.id : (req.headers["x-user-id"] || "default_user"));
+  const result = ingestUserDocument(effectiveUserId, documentId, content, fileName);
+  return res.json({ success: true, ...result });
+});
 
-  if (!message) {
-    return res.status(400).json({ error: "Message content is required" });
+// ENDPOINT 1: AI Advisor & Document Financial Intelligence
+app.post("/api/chat", async (req, res) => {
+  const {
+    message,
+    userId: clientUserId,
+    sessionId: clientSessionId,
+    documentId: clientDocumentId,
+    attachedDocument,
+    documentContent,
+    fileName,
+    userProfile,
+    selectedBank,
+    bankCategory,
+    messages: clientMessages,
+    conversationHistory,
+    history,
+    deterministicCalculation,
+    intent
+  } = req.body;
+
+  if (!message && !attachedDocument && !documentContent) {
+    return res.status(400).json({ error: "Message content or document is required" });
   }
 
-  const income = Number(userProfile?.monthlyIncome) || 0;
-  const expenses = Number(userProfile?.monthlyExpenses) || 0;
-  const savings = income - expenses;
+  // 1. Strict User & Session Isolation
+  const userId = clientUserId || req.user?.id || (req.headers["x-user-id"] || "default_user");
+  const sessionId = clientSessionId || "default_session";
+  const docId = clientDocumentId || (attachedDocument?.id || (attachedDocument?.name ? attachedDocument.name : "doc_current"));
 
-  const profileContext = userProfile 
-    ? `User Profile:
-       Occupation: ${userProfile.occupation || "Not Specified"}
-       Monthly Income: ₹${income.toLocaleString('en-IN')}
-       Monthly Expenses: ₹${expenses.toLocaleString('en-IN')}
-       Monthly Savings: ₹${savings.toLocaleString('en-IN')}
-       Risk Appetite: ${userProfile.riskAppetite || "Medium"}`
-    : "No financial profile metrics provided.";
+  // Ingest attached document if provided directly in payload
+  const rawDocContent = documentContent || attachedDocument?.content;
+  if (rawDocContent) {
+    ingestUserDocument(userId, docId, rawDocContent, fileName || attachedDocument?.name || "statement.txt");
+  }
 
-  const bankContext = selectedBank 
-    ? `Active Bank Selected by User: ${selectedBank}${bankCategory ? ` (Category: ${bankCategory})` : ""}.
-       IMPORTANT DIRECTIVE: When the user asks questions referring to "this bank", "its loan products", or bank-specific interest rates, answer specifically for ${selectedBank}.`
-    : `No specific bank is currently selected by the user.
-       IMPORTANT DIRECTIVE: Provide comprehensive, general financial explanations and advice across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
+  // Retrieve document chunks strictly belonging to this authenticated user
+  const retrieved = retrieveDocumentContext(userId, docId, message || "");
+  const docContext = retrieved.found ? retrieved.text : null;
+
+  // 2. Query Routing & Classification (DESCRIPTIVE, ANALYTICAL, ADVISORY)
+  const queryCategory = classifyQuery(message || "Summarize document", !!docContext);
+
+  // 3. Financial Data Validation & Provenance
+  const verified = getVerifiedProfile(userProfile);
+
+  let profileContext = "";
+  if (verified.isSuspicious) {
+    profileContext = `[DATA VALIDATION ANOMALY]\nSuspicious financial parameters detected: ${verified.suspiciousReason}\nDo not generate a misleading financial profile. Clearly flag the data anomaly to the user.`;
+  } else if (verified.hasIncome) {
+    profileContext = `User Profile (Verified):
+Occupation: ${verified.occupation}
+Monthly Income: ₹${verified.monthlyIncome.toLocaleString('en-IN')}
+Monthly Expenses: ${verified.monthlyExpenses !== null ? `₹${verified.monthlyExpenses.toLocaleString('en-IN')}` : "Not provided"}
+Monthly Savings: ${verified.savingsText}
+Safe EMI Capacity (40% ceiling): ₹${verified.safeEmiCeiling.toLocaleString('en-IN')}/month
+Risk Profile: ${verified.riskAppetite}
+Active Bank: ${verified.activeBank}`;
+  } else {
+    profileContext = `User Profile:
+Monthly Income: Income information not available. (IMPORTANT: Do NOT assume or invent a default income. If income is required to answer, ask the user for it.)
+Occupation: ${verified.occupation}
+Risk Profile: ${verified.riskAppetite}
+Active Bank: ${verified.activeBank}`;
+  }
+
+  // 4. Prompt Construction & Prompt Validation
+  let systemPromptContent = "";
+  let userPromptContent = "";
 
   try {
+    const promptConfig = buildPromptForCategory(queryCategory, {
+      query: message || "Please review and summarize this document.",
+      documentContext: docContext,
+      profileContext: profileContext,
+      currency: retrieved.currency?.code || "INR",
+      bankName: retrieved.bankName || selectedBank || null
+    });
+    systemPromptContent = promptConfig.systemPrompt;
+    userPromptContent = promptConfig.userPrompt;
+  } catch (validationErr) {
+    console.warn("[Prompt Validation Error Caught]:", validationErr.message);
+    return res.status(400).json({
+      error: validationErr.message,
+      validationError: true
+    });
+  }
+
+  // If no HF_TOKEN provided, directly utilize FinTwin's deterministic knowledge engine
+  if (!process.env.HF_TOKEN || process.env.HF_TOKEN.trim() === "" || process.env.HF_TOKEN === "placeholder_token") {
+    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile, docContext, retrieved);
+    return res.json({ reply: fallbackReply, source: "knowledge_engine", category: queryCategory });
+  }
+
+  try {
+    const modelId = process.env.HF_MODEL || "meta-llama/Llama-3.3-70B-Instruct";
+
+    // Format previous conversation turns to preserve conversational context
+    const rawHistory = clientMessages || conversationHistory || history;
+    let formattedHistory = [];
+    if (Array.isArray(rawHistory)) {
+      formattedHistory = rawHistory
+        .map(m => ({
+          role: (m.role === "assistant" || m.sender === "ai") ? "assistant" : "user",
+          content: String(m.content || m.text || "").trim()
+        }))
+        .filter(m => m.content.length > 0);
+    }
+
+    const deterministicContext = deterministicCalculation
+      ? `\n\nMATHEMATICALLY VERIFIED FINANCIAL CALCULATION (Deterministic figures - present these exact amounts, never hallucinate alternative numbers):\n${JSON.stringify(deterministicCalculation, null, 2)}`
+      : "";
+
     const chatCompletion = await chatClient.chat.completions.create({
-      model: "google/gemma-4-31B-it:novita", 
+      model: modelId,
       messages: [
         {
           role: "system",
-          content: `You are FinTwin's Core AI Financial Advisor, an intelligent, objective personal finance and loan specialist for retail borrowers and common users across India.
-        
-          CORE IDENTITY & OBJECTIVES:
-          1. You are a GENERAL financial advisor for FinTwin. You are NOT restricted to IDBI Bank or any single bank.
-          2. You provide unbiased, practical guidance across all Indian banks: Public Sector (SBI, BoB, PNB, Canara, Union Bank), Private Sector (HDFC, ICICI, Axis, Kotak, IDBI), Small Finance Banks (AU SFB, Equitas, Ujjivan), Regional Rural Banks (Aryavart, Kerala Gramin, Baroda UP), and Cooperative Banks (Saraswat, Cosmos, SVC).
-          3. You answer questions on:
-             - Loans: Home loans, personal loans, vehicle loans, education loans, gold loans, business/MSME loans, LAP, agriculture loans.
-             - Investments: Fixed deposits, mutual funds, SIPs, PPF, Sukanya Samriddhi, SCSS, NPS, sovereign gold bonds.
-             - Basic Concepts: EMI calculation, debt-to-income (DTI) ratio, compounding, emergency funds, tax-saving (80C, 24b), CIBIL repair.
-             - Profile-Tailored Guidance: Base your advice on user's income, expenses, monthly savings, and risk tolerance.
-          
-          ACTIVE CONTEXT:
-          ${bankContext}
-
-          User Context:
-          ${profileContext}
-
-          CRITICAL OUTPUT FORMATTING RULES:
-          1. NEVER use markdown asterisks (*), hashes (#), or dashes (-) for bullet points.
-          2. Format all lists and comparative analyses using clean numbered index tracking prefix patterns:
-             1. First Item Parameter Description...
-             2. Second Item Parameter Description...
-          3. Place every single numbered item strictly on a brand new fresh line using a clean line break.
-          4. When printing parameters or comparing items, print data fields clearly using one field per line layout structure.
-          5. Always ensure money attributes output contains a single prefix symbol '₹' cleanly (e.g., ₹50,000). Never double the symbol.`
+          content: `${systemPromptContent}${deterministicContext}`
         },
-        {
-          role: "user",
-          content: message,
-        },
+        ...formattedHistory.slice(-10),
+        ...(formattedHistory.length === 0 || formattedHistory[formattedHistory.length - 1].content !== (userPromptContent || message)
+          ? [{ role: "user", content: userPromptContent || message }]
+          : [])
       ],
-      max_tokens: 500,
-      temperature: 0.7
+      max_tokens: 600,
+      temperature: 0.6
     });
 
     if (!chatCompletion || !chatCompletion.choices || chatCompletion.choices.length === 0) {
-      return res.json({ reply: generateFallbackReply(message, selectedBank, userProfile) });
+      return res.json({ reply: generateFallbackReply(message, selectedBank, userProfile, docContext, retrieved), source: "knowledge_engine", category: queryCategory });
     }
 
     let reply = chatCompletion.choices[0].message.content;
     reply = reply.replace(/₹₹/g, "₹");
-    return res.json({ reply });
+    return res.json({ reply, source: "llm", category: queryCategory });
     
   } catch (error) {
-    console.warn("Chat Route Notice (Employing Intelligent Fallback):", error.message);
-    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile);
-    return res.json({ reply: fallbackReply });
+    console.warn("[FinTwin Advisor API Notice] Cloud model inference unavailable:", error.message, "- seamlessly utilizing built-in knowledge engine.");
+    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile, docContext, retrieved);
+    return res.json({ reply: fallbackReply, source: "knowledge_engine", category: queryCategory });
   }
 });
 

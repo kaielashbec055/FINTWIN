@@ -393,3 +393,126 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+/* ============================================================================
+   LOANS PAGE DARK MODE STYLES
+   ============================================================================ */
+.dark-mode .loans-page-container {
+  color: #f8fafc;
+}
+
+.dark-mode .loans-header-block .title {
+  color: #f8fafc;
+}
+
+.dark-mode .loans-header-block .description {
+  color: #94a3b8;
+}
+
+.dark-mode .loan-metric-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .loan-metric-card-label {
+  color: #94a3b8;
+}
+
+.dark-mode .loan-metric-card-val {
+  color: #f8fafc;
+}
+
+.dark-mode .loans-subnav-tabs {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .loans-subnav-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .loans-subnav-btn:hover {
+  color: #f43f5e;
+}
+
+.dark-mode .loans-subnav-btn.active {
+  color: #f43f5e;
+  border-bottom-color: #f43f5e;
+}
+
+.dark-mode .active-loan-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .active-loan-title-group h3 {
+  color: #f8fafc;
+}
+
+.dark-mode .active-loan-bank-pill {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+}
+
+.dark-mode .progress-labels {
+  color: #94a3b8;
+}
+
+.dark-mode .progress-track {
+  background: #334155;
+}
+
+.dark-mode .active-loan-stats-grid {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+.dark-mode .active-loan-stat-item span:first-child {
+  color: #94a3b8;
+}
+
+.dark-mode .active-loan-stat-item span:last-child {
+  color: #f8fafc;
+}
+
+.dark-mode .active-loan-footer {
+  border-top-color: #334155;
+  color: #94a3b8;
+}
+
+.dark-mode .modal-content-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+.dark-mode .modal-header {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .modal-header h2 {
+  color: #f8fafc;
+}
+
+.dark-mode .modal-close-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .modal-input-group label {
+  color: #cbd5e1;
+}
+
+.dark-mode .modal-input-group input,
+.dark-mode .modal-input-group select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.dark-mode .modal-actions-footer {
+  border-top-color: #334155;
+}
+
+.dark-mode .modal-cancel-btn {
+  background: #334155;
+  color: #cbd5e1;
+}
+

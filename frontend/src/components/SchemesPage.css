@@ -240,7 +240,13 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 12px;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scheme-card-header > div:first-child {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .scheme-card-title {
@@ -318,7 +324,7 @@
 
 .scheme-card-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   border-top: 1px solid #f1f5f9;
   padding-top: 14px;
@@ -368,7 +374,10 @@
   border-radius: 6px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  word-break: break-word;
+  align-self: flex-start;
 }
 
 .scheme-tag.bfsi { background: #dbeafe; color: #1d4ed8; }

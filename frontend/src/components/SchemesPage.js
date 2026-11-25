@@ -199,7 +199,7 @@ const MYSCHEME_DATA = [
     title: 'PM SVANidhi (Street Vendor’s AtmaNirbhar Nidhi)',
     ministry: 'Ministry of Housing and Urban Affairs',
     category: 'business',
-    categoryName: 'Micro-Business & Street Vendors',
+    categoryName: 'Micro-Business',
     shortDesc: 'Special micro-credit facility providing working capital loans to empower street vendors and hawkers.',
     benefits: [
       'Initial working capital collateral-free loan of ₹10,000 (1st tranche)',
@@ -374,17 +374,8 @@ const SchemesPage = () => {
                 className="scheme-btn-details"
                 onClick={() => setActiveModalScheme(scheme)}
               >
-                {t('view_details', 'View Full Details')}
+                {t('view_details', 'View Details')}
               </button>
-
-              <a
-                href={scheme.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="scheme-btn-external"
-              >
-                myScheme ↗
-              </a>
             </div>
           </div>
         ))}
@@ -489,7 +480,7 @@ const SchemesPage = () => {
                   gap: '6px'
                 }}
               >
-                Apply via myScheme.gov.in ↗
+                View More ↗
               </a>
             </div>
           </div>

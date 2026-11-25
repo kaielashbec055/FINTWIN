@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import "./auth.css";
 
 function Signup() {
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -68,6 +71,16 @@ function Signup() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-top-nav">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="btn-back-options"
+            title="Return to landing page"
+          >
+            <ArrowLeft size={15} style={{ marginRight: 6 }} /> Back
+          </button>
+        </div>
 
         <h2>Register</h2>
 

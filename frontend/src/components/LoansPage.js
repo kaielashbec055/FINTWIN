@@ -205,12 +205,7 @@ export default function LoansPage({ profile }) {
   const banksInCategory = BANKS_DATA[bankCategory] || [];
   const currentBank = banksInCategory.find(b => b.id === selectedBankId) || banksInCategory[0] || null;
 
-  useEffect(() => {
-    if (currentBank) {
-      localStorage.setItem("fintwin_selected_bank", currentBank.name);
-      localStorage.setItem("fintwin_selected_bank_category", bankCategory);
-    }
-  }, [currentBank, bankCategory]);
+
 
   const availableProducts = (currentBank?.loans && currentBank.loans[loanCategory]) || [];
   const tenureOptions = LOAN_TENURE_OPTIONS[loanCategory] || [{ label: "Term (5y)", years: 5 }];
