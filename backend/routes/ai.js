@@ -102,21 +102,39 @@ passport.deserializeUser(async (id, done) => {
 
 const { generateFinTwinAdvisory } = require("../knowledgeEngine");
 
-function generateFallbackReply(message, selectedBank, userProfile) {
-  return generateFinTwinAdvisory(message, selectedBank, userProfile);
+// Optional: Initialize Google GenAI if GEMINI_API_KEY is available
+let geminiClient = null;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    const { GoogleGenAI } = require("@google/genai");
+    geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  } catch (err) {
+    console.warn("Notice: Gemini client could not be initialized:", err.message);
+  }
 }
 
-// ENDPOINT 1: Gemma 4 Text Advisory Engine & Multi-Bank Financial Intelligence
-app.post("/api/chat", async (req, res) => {
-  const { message, userProfile, selectedBank, bankCategory } = req.body;
+function generateFallbackReply(message, selectedBank, userProfile, attachedFile) {
+  return generateFinTwinAdvisory(message, selectedBank, userProfile, attachedFile);
+}
 
-  if (!message) {
+// ENDPOINT 1: Dual-Engine AI Financial Advisory (Gemini / HF with Instant Intelligent Fallback)
+app.post("/api/chat", async (req, res) => {
+  const { message, userProfile, selectedBank, bankCategory, attachedFile } = req.body;
+
+  if (!message || typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "Message content is required" });
   }
 
-  const income = Number(userProfile?.monthlyIncome) || 0;
-  const expenses = Number(userProfile?.monthlyExpenses) || 0;
-  const savings = income - expenses;
+  const rawIncomeVal = typeof userProfile?.monthlyIncome === "string" 
+    ? userProfile.monthlyIncome.replace(/[₹,]/g, "") 
+    : userProfile?.monthlyIncome;
+  const rawExpensesVal = typeof userProfile?.monthlyExpenses === "string" 
+    ? userProfile.monthlyExpenses.replace(/[₹,]/g, "") 
+    : userProfile?.monthlyExpenses;
+
+  const income = Number(rawIncomeVal) || 0;
+  const expenses = Number(rawExpensesVal) || 0;
+  const savings = Math.max(income - expenses, 0);
 
   const profileContext = userProfile 
     ? `User Profile:
@@ -131,62 +149,66 @@ app.post("/api/chat", async (req, res) => {
     ? `Active Bank Selected by User: ${selectedBank}${bankCategory ? ` (Category: ${bankCategory})` : ""}.
        IMPORTANT DIRECTIVE: When the user asks questions referring to "this bank", "its loan products", or bank-specific interest rates, answer specifically for ${selectedBank}.`
     : `No specific bank is currently selected by the user.
-       IMPORTANT DIRECTIVE: Provide comprehensive, general financial explanations and advice across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
+       IMPORTANT DIRECTIVE: Provide comprehensive, practical guidance across Indian banks (Public, Private, Small Finance, Regional Rural, Cooperative) without assuming any single default bank.`;
 
-  try {
-    const chatCompletion = await chatClient.chat.completions.create({
-      model: "google/gemma-4-31B-it:novita", 
-      messages: [
-        {
-          role: "system",
-          content: `You are FinTwin's Core AI Financial Advisor, an intelligent, objective personal finance and loan specialist for retail borrowers and common users across India.
-        
-          CORE IDENTITY & OBJECTIVES:
-          1. You are a GENERAL financial advisor for FinTwin. You are NOT restricted to IDBI Bank or any single bank.
-          2. You provide unbiased, practical guidance across all Indian banks: Public Sector (SBI, BoB, PNB, Canara, Union Bank), Private Sector (HDFC, ICICI, Axis, Kotak, IDBI), Small Finance Banks (AU SFB, Equitas, Ujjivan), Regional Rural Banks (Aryavart, Kerala Gramin, Baroda UP), and Cooperative Banks (Saraswat, Cosmos, SVC).
-          3. You answer questions on:
-             - Loans: Home loans, personal loans, vehicle loans, education loans, gold loans, business/MSME loans, LAP, agriculture loans.
-             - Investments: Fixed deposits, mutual funds, SIPs, PPF, Sukanya Samriddhi, SCSS, NPS, sovereign gold bonds.
-             - Basic Concepts: EMI calculation, debt-to-income (DTI) ratio, compounding, emergency funds, tax-saving (80C, 24b), CIBIL repair.
-             - Profile-Tailored Guidance: Base your advice on user's income, expenses, monthly savings, and risk tolerance.
-          
-          ACTIVE CONTEXT:
-          ${bankContext}
+  // 1. Attempt Google Gemini if API Key is configured
+  if (geminiClient && process.env.GEMINI_API_KEY) {
+    try {
+      const prompt = `You are FinTwin's Core AI Financial Advisor, an intelligent personal finance and loan specialist for retail borrowers across India.
+Context:
+${bankContext}
+${profileContext}
 
-          User Context:
-          ${profileContext}
+User Query: ${message}`;
 
-          CRITICAL OUTPUT FORMATTING RULES:
-          1. NEVER use markdown asterisks (*), hashes (#), or dashes (-) for bullet points.
-          2. Format all lists and comparative analyses using clean numbered index tracking prefix patterns:
-             1. First Item Parameter Description...
-             2. Second Item Parameter Description...
-          3. Place every single numbered item strictly on a brand new fresh line using a clean line break.
-          4. When printing parameters or comparing items, print data fields clearly using one field per line layout structure.
-          5. Always ensure money attributes output contains a single prefix symbol '₹' cleanly (e.g., ₹50,000). Never double the symbol.`
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7
-    });
+      const response = await geminiClient.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt
+      });
 
-    if (!chatCompletion || !chatCompletion.choices || chatCompletion.choices.length === 0) {
-      return res.json({ reply: generateFallbackReply(message, selectedBank, userProfile) });
+      if (response && response.text) {
+        return res.json({ reply: response.text });
+      }
+    } catch (geminiError) {
+      console.warn("Gemini Advisory Route Notice (Switching to Intelligent Knowledge Engine):", geminiError.message);
     }
-
-    let reply = chatCompletion.choices[0].message.content;
-    reply = reply.replace(/₹₹/g, "₹");
-    return res.json({ reply });
-    
-  } catch (error) {
-    console.warn("Chat Route Notice (Employing Intelligent Fallback):", error.message);
-    const fallbackReply = generateFallbackReply(message, selectedBank, userProfile);
-    return res.json({ reply: fallbackReply });
   }
+
+  // 2. Attempt Hugging Face Router if real HF_TOKEN configured
+  const hasValidHfToken = process.env.HF_TOKEN && 
+    process.env.HF_TOKEN !== "placeholder_token" && 
+    !process.env.HF_TOKEN.includes("placeholder");
+
+  if (hasValidHfToken) {
+    try {
+      const chatCompletion = await chatClient.chat.completions.create({
+        model: "google/gemma-4-31B-it:novita", 
+        messages: [
+          {
+            role: "system",
+            content: `You are FinTwin's Core AI Financial Advisor, an intelligent personal finance and loan specialist for retail borrowers across India.`
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        max_tokens: 600,
+        temperature: 0.7
+      });
+
+      if (chatCompletion?.choices?.[0]?.message?.content) {
+        let reply = chatCompletion.choices[0].message.content.replace(/₹₹/g, "₹");
+        return res.json({ reply });
+      }
+    } catch (hfError) {
+      console.warn("HuggingFace Route Notice (Switching to Intelligent Knowledge Engine):", hfError.message);
+    }
+  }
+
+  // 3. Resilient Deterministic Knowledge Engine
+  const reply = generateFallbackReply(message, selectedBank, userProfile, attachedFile);
+  return res.json({ reply });
 });
 
 // ENDPOINT 2: FLUX.1 Image Generation Engine
